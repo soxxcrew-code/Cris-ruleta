@@ -5142,46 +5142,82 @@ if(action === "normalizeBuilder"){
   const renderer = new THREE.WebGLRenderer({canvas:canvas3,antialias:true,alpha:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
+  renderer.toneMappingExposure = 1.10;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0xffffff,1);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xffffff);
-  scene.fog = new THREE.Fog(0xffffff,16,40);
+  // Fog set further back so the room corners read clean
+  scene.fog = new THREE.Fog(0xffffff,22,55);
 
-  const camera = new THREE.PerspectiveCamera(46,1,.1,80);
-  camera.position.set(0,1.6,9);
-  camera.lookAt(0,.6,0);
+  const camera = new THREE.PerspectiveCamera(42,1,.1,80);
+  // Slightly higher & farther back to read the room depth
+  camera.position.set(0,1.9,10.5);
+  camera.lookAt(0,.4,0);
 
-  /* ── Lights (bright white salon) ── */
-  scene.add(new THREE.AmbientLight(0xffffff,.85));
-  const keyL=new THREE.DirectionalLight(0xffffff,1.6);
+  /* Lights — bright white salon with directional depth */
+  scene.add(new THREE.AmbientLight(0xffffff,.55));
+  scene.add(new THREE.HemisphereLight(0xffffff,0xe8ecf5,.55));
+  const keyL=new THREE.DirectionalLight(0xffffff,1.35);
   keyL.position.set(-5,9,6);keyL.castShadow=true;
   keyL.shadow.mapSize.set(2048,2048);keyL.shadow.bias=-.0008;
   keyL.shadow.camera.left=-12;keyL.shadow.camera.right=12;
   keyL.shadow.camera.top=12;keyL.shadow.camera.bottom=-12;
+  keyL.shadow.radius=4;
   scene.add(keyL);
-  const fillL=new THREE.DirectionalLight(0xeef2ff,.7);
+  const fillL=new THREE.DirectionalLight(0xeef2ff,.55);
   fillL.position.set(6,4,4);scene.add(fillL);
-  const rimL=new THREE.DirectionalLight(0xffffff,.5);
+  const rimL=new THREE.DirectionalLight(0xffffff,.4);
   rimL.position.set(0,6,-8);scene.add(rimL);
 
-  /* ── Floor (white salon floor) ── */
-  const floor=new THREE.Mesh(
-    new THREE.PlaneGeometry(60,60),
-    new THREE.MeshStandardMaterial({color:0xf4f6fb,metalness:.1,roughness:.85})
-  );
-  floor.rotation.x=-Math.PI/2;floor.position.y=-1.8;
+  /* ============================================================
+     WHITE ROOM — floor + back/side walls + ceiling + skirting
+     so the safe and the buildings sit inside a real 3D box.
+     ============================================================ */
+  const ROOM = { w:18, d:18, h:9, y:-1.8 };
+  const wallMat  = new THREE.MeshStandardMaterial({color:0xfafbfe,metalness:0,roughness:1});
+  const floorMat = new THREE.MeshStandardMaterial({color:0xeef1f7,metalness:.05,roughness:.9});
+  const ceilMat  = new THREE.MeshStandardMaterial({color:0xffffff,metalness:0,roughness:1});
+  const skirtMat = new THREE.MeshStandardMaterial({color:0xdbe1ee,metalness:.1,roughness:.7});
+
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w,ROOM.d),floorMat);
+  floor.rotation.x=-Math.PI/2;floor.position.y=ROOM.y;
   floor.receiveShadow=true;scene.add(floor);
 
-  // Back wall (deep white salon feel)
-  const wall=new THREE.Mesh(
-    new THREE.PlaneGeometry(60,30),
-    new THREE.MeshStandardMaterial({color:0xfbfcff,metalness:.0,roughness:1})
-  );
-  wall.position.set(0,8,-14);scene.add(wall);
+  const backWall=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w,ROOM.h),wallMat);
+  backWall.position.set(0,ROOM.y+ROOM.h/2,-ROOM.d/2);
+  backWall.receiveShadow=true;scene.add(backWall);
+
+  const leftWall=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.d,ROOM.h),wallMat);
+  leftWall.rotation.y=Math.PI/2;
+  leftWall.position.set(-ROOM.w/2,ROOM.y+ROOM.h/2,0);
+  leftWall.receiveShadow=true;scene.add(leftWall);
+
+  const rightWall=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.d,ROOM.h),wallMat);
+  rightWall.rotation.y=-Math.PI/2;
+  rightWall.position.set(ROOM.w/2,ROOM.y+ROOM.h/2,0);
+  rightWall.receiveShadow=true;scene.add(rightWall);
+
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w,ROOM.d),ceilMat);
+  ceil.rotation.x=Math.PI/2;
+  ceil.position.set(0,ROOM.y+ROOM.h,0);
+  scene.add(ceil);
+
+  // Skirting boards (zócalo) for corner depth
+  const skH=.14, skT=.07;
+  const skBack=new THREE.Mesh(new THREE.BoxGeometry(ROOM.w,skH,skT),skirtMat);
+  skBack.position.set(0,ROOM.y+skH/2,-ROOM.d/2+skT/2);scene.add(skBack);
+  const skLeft=new THREE.Mesh(new THREE.BoxGeometry(skT,skH,ROOM.d),skirtMat);
+  skLeft.position.set(-ROOM.w/2+skT/2,ROOM.y+skH/2,0);scene.add(skLeft);
+  const skRight=new THREE.Mesh(new THREE.BoxGeometry(skT,skH,ROOM.d),skirtMat);
+  skRight.position.set(ROOM.w/2-skT/2,ROOM.y+skH/2,0);scene.add(skRight);
+
+  // Subtle ceiling cornice
+  const cornMat=new THREE.MeshStandardMaterial({color:0xeef1f7,metalness:.05,roughness:.8});
+  const corn=new THREE.Mesh(new THREE.BoxGeometry(ROOM.w,.05,skT),cornMat);
+  corn.position.set(0,ROOM.y+ROOM.h-.025,-ROOM.d/2+skT/2);scene.add(corn);
 
   const NAVY = 0x0d1e6a;     // app navy tone
   const GOLD = 0xc6a028;
@@ -5272,7 +5308,7 @@ if(action === "normalizeBuilder"){
       new THREE.MeshStandardMaterial({color:0xcc2222,metalness:.2,roughness:.6})
     );
     flag.position.set(.28,floors*.52+1.0,0); g.add(flag);
-    const lbl=makeLabel("INTERNACIONAL","$200,000 USD");
+    const lbl=makeLabel("ALTERNA","$200,000 USD");
     lbl.position.set(0,floors*.52+1.8,0);
     g.add(lbl);
     g.position.set(4.2,-1.5,0);
@@ -5281,67 +5317,159 @@ if(action === "normalizeBuilder"){
     objects.push({group:g,key:"usa",hit:g});
   }
 
-  /* ── VAULT (right-center foreground, large) ── */
+  /* VAULT (center foreground) — real 3D box with pedestal, inset
+     door, hinges and lever. Exposes top/back position so Arcelia can
+     be auto-placed right behind it. */
   function buildVault(){
     const g=new THREE.Group();
-    // body
-    const body=new THREE.Mesh(
-      new THREE.BoxGeometry(2.0,2.0,1.4),
-      new THREE.MeshStandardMaterial({color:0x14233f,metalness:.5,roughness:.4})
+
+    // Pedestal / base — grounds the vault and adds depth
+    const baseW=2.4, baseH=.20, baseD=1.95;
+    const base=new THREE.Mesh(
+      new THREE.BoxGeometry(baseW,baseH,baseD),
+      new THREE.MeshStandardMaterial({color:0x0a1530,metalness:.55,roughness:.45})
     );
-    body.castShadow=true; body.receiveShadow=true; g.add(body);
-    // gold frame
-    const frame=new THREE.Mesh(
-      new THREE.BoxGeometry(1.7,1.7,1.45),
-      new THREE.MeshStandardMaterial({color:GREEN,metalness:.4,roughness:.5,transparent:true,opacity:.0})
-    );
-    g.add(frame);
-    const frameEdge=new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(1.7,1.7,1.42)),
+    base.position.y=-1.0+baseH/2;
+    base.castShadow=true; base.receiveShadow=true; g.add(base);
+    const baseTrim=new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(baseW+.005,baseH+.005,baseD+.005)),
       new THREE.LineBasicMaterial({color:GOLD})
     );
-    g.add(frameEdge);
-    // wheel (static)
+    baseTrim.position.copy(base.position); g.add(baseTrim);
+
+    // Vault body — noticeably deeper for real volume
+    const bodyW=2.0, bodyH=2.0, bodyD=1.85;
+    const body=new THREE.Mesh(
+      new THREE.BoxGeometry(bodyW,bodyH,bodyD),
+      new THREE.MeshStandardMaterial({color:0x14233f,metalness:.55,roughness:.4})
+    );
+    body.position.y=-1.0+baseH+bodyH/2;
+    body.castShadow=true; body.receiveShadow=true; g.add(body);
+
+    // Inset door panel on the front face
+    const doorW=1.6, doorH=1.6, doorD=.06;
+    const door=new THREE.Mesh(
+      new THREE.BoxGeometry(doorW,doorH,doorD),
+      new THREE.MeshStandardMaterial({color:0x1a2e55,metalness:.6,roughness:.35})
+    );
+    door.position.set(0, body.position.y, bodyD/2 + doorD/2 - .01);
+    door.castShadow=true; g.add(door);
+    const doorEdge=new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(doorW+.005,doorH+.005,doorD+.005)),
+      new THREE.LineBasicMaterial({color:GOLD})
+    );
+    doorEdge.position.copy(door.position); g.add(doorEdge);
+
+    // Outer gold frame on the body
+    const frameEdge=new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(bodyW-.04,bodyH-.04,bodyD-.04)),
+      new THREE.LineBasicMaterial({color:GOLD})
+    );
+    frameEdge.position.copy(body.position); g.add(frameEdge);
+
+    // Hinges on the left edge of the door
+    const hingeMat=new THREE.MeshStandardMaterial({color:GOLD,metalness:.85,roughness:.2});
+    for(let i=0;i<2;i++){
+      const hinge=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.18,12),hingeMat);
+      hinge.rotation.z=Math.PI/2;
+      hinge.position.set(-doorW/2+.04, body.position.y + (i===0?.55:-.55), door.position.z+.04);
+      g.add(hinge);
+    }
+
+    // Door wheel (handle)
     const wheel=new THREE.Mesh(
-      new THREE.TorusGeometry(.4,.07,12,32),
+      new THREE.TorusGeometry(.34,.06,12,32),
       new THREE.MeshStandardMaterial({color:GOLD,metalness:.85,roughness:.2,emissive:GOLD,emissiveIntensity:.15})
     );
-    wheel.position.z=.72; g.add(wheel);
+    wheel.position.set(0, body.position.y, door.position.z+.08); g.add(wheel);
     const hub=new THREE.Mesh(
-      new THREE.CylinderGeometry(.12,.12,.16,16),
+      new THREE.CylinderGeometry(.11,.11,.14,16),
       new THREE.MeshStandardMaterial({color:GOLD,metalness:.9,roughness:.1})
     );
-    hub.rotation.x=Math.PI/2; hub.position.z=.74; g.add(hub);
-    // spokes
+    hub.rotation.x=Math.PI/2; hub.position.set(0, body.position.y, door.position.z+.10); g.add(hub);
     for(let i=0;i<6;i++){
       const sp=new THREE.Mesh(
-        new THREE.BoxGeometry(.05,.7,.05),
+        new THREE.BoxGeometry(.045,.6,.045),
         new THREE.MeshStandardMaterial({color:GOLD,metalness:.8,roughness:.2})
       );
-      sp.rotation.z=i*Math.PI/3; sp.position.z=.72; g.add(sp);
+      sp.rotation.z=i*Math.PI/3;
+      sp.position.set(0, body.position.y, door.position.z+.06);
+      g.add(sp);
     }
+    // Side lever handle
+    const lever=new THREE.Mesh(
+      new THREE.BoxGeometry(.5,.05,.05),
+      new THREE.MeshStandardMaterial({color:GOLD,metalness:.85,roughness:.2})
+    );
+    lever.position.set(doorW/2-.18, body.position.y-.55, door.position.z+.05);
+    g.add(lever);
+
     const lbl=makeLabel("PROTECCIÓN","$3,000,000 MXN");
-    lbl.position.set(0,1.7,0);
+    lbl.position.set(0, body.position.y+1.55, 0);
     g.add(lbl);
-    g.position.set(0,-.8,2.4);
+
+    // Sit base on floor (-1.8): g.position.y=-.8 so base bottom = -.8 + (-1.0) = -1.8
+    g.position.set(0, -.8, 2.4);
     g.scale.setScalar(1.05);
     scene.add(g);
     objects.push({group:g,key:"vault",hit:g});
+
+    // Expose top / back of vault in WORLD coordinates so Arcelia can be
+    // auto-placed right behind it.
+    const s = g.scale.x;
+    g.userData.topY  = g.position.y + (body.position.y + bodyH/2) * s;
+    g.userData.backZ = g.position.z + (-bodyD/2) * s;
+    window.__vault = g;
   }
 
   buildActinver();
   buildUSA();
   buildVault();
 
-  /* ── Arcelia (center, large) ── */
+  /* ============================================================
+     ARCELIA — torso/3D model placed BEHIND the vault so her bust
+     appears above the safe. Auto-scales to the world so it works
+     no matter the GLB unit (cm / mm / m).
+     ============================================================ */
   const loader=new THREE.GLTFLoader();
   loader.load("mujer.glb",(gltf)=>{
     const m=gltf.scene;
-    m.scale.setScalar(.02);
-    m.position.set(0,-1.8,-1.2);
-    m.traverse(c=>{if(c.isMesh){c.castShadow=true;c.receiveShadow=true;}});
+    m.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+
+    // 1) Measure the raw model
+    const rawBox = new THREE.Box3().setFromObject(m);
+    const rawSize = new THREE.Vector3(); rawBox.getSize(rawSize);
+    const rawCenter = new THREE.Vector3(); rawBox.getCenter(rawCenter);
+
+    // 2) Auto-scale so the model is ~2.2 world units tall — a torso that
+    //    pokes about 1.0u above the ~2.0u vault.
+    const TARGET_H = 2.2;
+    const s = (rawSize.y > 0) ? (TARGET_H / rawSize.y) : 0.02;
+    m.scale.setScalar(s);
+
+    // 3) Compute target placement (right behind the vault).
+    const vault = window.__vault;
+    const targetX = 0;
+    const targetZ = vault ? (vault.userData.backZ - 0.55) : 0.6;
+    // Bottom of bbox slightly below vault top so bust crosses safe edge
+    const vaultTop = vault ? vault.userData.topY : 0.20;
+    const targetBottomY = vaultTop - 1.10;
+
+    const scaledCenter = rawCenter.clone().multiplyScalar(s);
+    const scaledMinY   = rawBox.min.y * s;
+
+    m.position.set(
+      targetX - scaledCenter.x,
+      targetBottomY - scaledMinY,
+      targetZ  - scaledCenter.z
+    );
+
+    m.rotation.y = 0; // face camera
+
     scene.add(m);
-  },undefined,()=>{});
+  },undefined,(err)=>{
+    console.warn("[VIP] mujer.glb no se pudo cargar:", err);
+  });
 
   /* ── Raycaster ── */
   const ray=new THREE.Raycaster(),mouse2=new THREE.Vector2();
@@ -5387,8 +5515,8 @@ if(action === "normalizeBuilder"){
     requestAnimationFrame(animate);
     tX+=(txT-tX)*.04;tY+=(tyT-tY)*.04;
     camera.position.x+=(tY*1.2-camera.position.x)*.03;
-    camera.position.y+=(1.6-tX*.8-camera.position.y)*.03;
-    camera.lookAt(0,.6,0);
+    camera.position.y+=(1.9-tX*.8-camera.position.y)*.03;
+    camera.lookAt(0,.4,0);
     renderer.render(scene,camera);
   }
 
