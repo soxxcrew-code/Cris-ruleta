@@ -5157,11 +5157,11 @@ body.vip-active .topbar { display: none !important; }
   renderer.setClearColor(0xffffff,1);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf3f4f7);
+  scene.background = new THREE.Color(0xeef0f5);
   // Stronger fog from a closer distance — gives the whole scene
   // atmospheric depth and washes the back wall into the foreground so
   // everything feels part of one shared space.
-  scene.fog = new THREE.Fog(0xf3f4f7, 12, 28);
+  scene.fog = new THREE.Fog(0xeef0f5, 8, 24);
 
   const camera = new THREE.PerspectiveCamera(42,1,.1,80);
   camera.position.set(0,1.9,10.5);
@@ -5386,8 +5386,8 @@ body.vip-active .topbar { display: none !important; }
   /* ACTINVER — dark navy glass + GOLD architectural accents */
   function buildActinver(){
     const g = buildModernTower({
-      w: 1.75, d: 1.75,
-      floors: 15,
+      w: 1.70, d: 1.70,
+      floors: 12,
       cols: 3,
       glass:    0x1b2a4a,
       glassEm:  0x111b32,
@@ -5429,8 +5429,8 @@ body.vip-active .topbar { display: none !important; }
   /* ALTERNA — dark navy glass + SILVER architectural accents */
   function buildUSA(){
     const g = buildModernTower({
-      w: 1.50, d: 1.50,
-      floors: 19,
+      w: 1.45, d: 1.45,
+      floors: 14,
       cols: 3,
       glass:    0x1c2c4f,
       glassEm:  0x121e38,
@@ -5648,11 +5648,11 @@ body.vip-active .topbar { display: none !important; }
     sp.position.set(x, -1.60, z);
     scene.add(sp);
   }
-  // Smaller (1.35 x 0.44) and pushed clearly in front of each object so
-  // they read as ground plaques BELOW the buildings / vault, not on top.
-  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 2.60, 1.35, 0.44);
-  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 2.60, 1.35, 0.44);
-  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 5.10, 1.35, 0.44);
+  // Bigger (1.95 x 0.62) and stuck just in front of each building/vault
+  // base so they read as the building's own ground plaque.
+  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 1.05, 1.95, 0.62);
+  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 1.05, 1.95, 0.62);
+  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 4.05, 1.95, 0.62);
 
   /* ============================================================
      ARCELIA — torso/3D model placed BEHIND the vault so her bust
@@ -5674,14 +5674,15 @@ body.vip-active .topbar { display: none !important; }
     const s = (rawSize.y > 0) ? (TARGET_H / rawSize.y) : 0.02;
     m.scale.setScalar(s);
 
-    // 3) Place her ON TOP of the vault, with a slight 3/4 turn so the
-    //    camera reads the depth of the model (a perfectly head-on
-    //    pose makes any 3D bust look pasted in like a 2D photo).
+    // 3) Place her BEHIND the vault (not on top), close enough that
+    //    the safe still feels like part of her composition. Slight
+    //    3/4 turn so the camera reads the depth (a head-on bust looks
+    //    like a sticker).
     const vault = window.__vault;
     const targetX = 0;
-    const targetZ = vault ? vault.position.z : 2.4;     // centred on the safe
+    const targetZ = vault ? (vault.userData.backZ - 0.35) : 0.6;
     const vaultTop = vault ? vault.userData.topY : 0.20;
-    const targetBottomY = vaultTop + 0.02;              // sit on top of the lid
+    const targetBottomY = vaultTop - 0.55;              // body crosses safe top edge
 
     const scaledCenter = rawCenter.clone().multiplyScalar(s);
     const scaledMinY   = rawBox.min.y * s;
@@ -5705,17 +5706,25 @@ body.vip-active .topbar { display: none !important; }
     // 5) Tame the model materials so she sits in the same tonal
     //    range as the rest of the scene (was looking like a sticker
     //    because of high emissive + the previous dedicated lights).
+    // Pull her materials toward the scene's tonal range but keep a
+    // little bit of life — user wanted her to glow just a touch more
+    // than the fully-killed version.
     m.traverse(c=>{
       if(c.isMesh && c.material){
         const ms = Array.isArray(c.material) ? c.material : [c.material];
         ms.forEach(mat=>{
-          if (mat.emissive)         mat.emissiveIntensity = 0.0;
-          if ("metalness" in mat)  mat.metalness = Math.min(mat.metalness ?? 0, 0.2);
-          if ("roughness" in mat)  mat.roughness = Math.max(mat.roughness ?? 1, 0.75);
+          if (mat.emissive)         mat.emissiveIntensity = 0.06;
+          if ("metalness" in mat)  mat.metalness = Math.min(mat.metalness ?? 0, 0.30);
+          if ("roughness" in mat)  mat.roughness = Math.max(mat.roughness ?? 1, 0.55);
           mat.needsUpdate = true;
         });
       }
     });
+    // Soft fill light just for her so the bust catches a little
+    // warm highlight without re-introducing the "sticker" effect.
+    const arcGlow = new THREE.PointLight(0xfff0d6, 0.55, 5, 1.6);
+    arcGlow.position.set(0, vaultTop + 1.6, targetZ + 1.4);
+    scene.add(arcGlow);
 
     scene.add(m);
   },undefined,(err)=>{
