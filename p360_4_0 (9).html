@@ -5166,7 +5166,7 @@ body.vip-active .topbar { display: none !important; }
   // Stronger fog from a closer distance — gives the whole scene
   // atmospheric depth and washes the back wall into the foreground so
   // everything feels part of one shared space.
-  scene.fog = new THREE.Fog(0xeef0f5, 16, 36);
+  scene.fog = new THREE.Fog(0xeef0f5, 14, 32);
 
   const camera = new THREE.PerspectiveCamera(42,1,.1,80);
   camera.position.set(0,1.9,10.5);
@@ -5241,50 +5241,37 @@ body.vip-active .topbar { display: none !important; }
      around the top of each tower (matches the PowerPoint mockup
      better than a uniform horizontal haze).
      ============================================================ */
-  function makeCloudSprite(){
+  /* Horizontal white haze layers — the previous fog look that the
+     user liked, but lowered so the bottom layer actually touches
+     the tips of the buildings (Actinver pyramid ~y=2.7, Alterna
+     spire ~y=3.8). */
+  function makeCloudPlane(y, size, opacity){
     const cv=document.createElement("canvas");
-    cv.width=1024; cv.height=512;
+    cv.width=512; cv.height=512;
     const ctx=cv.getContext("2d");
-    // Larger overlapping discs and a near-solid white core so the
-    // cloud reads clearly white (like the PowerPoint mockup), not as
-    // a grey haze.
-    const circles=[
-      [240,330,170],[400,260,200],[560,290,180],
-      [720,340,160],[450,400,135],[300,380,120],
-      [640,400,140],[500,210,145]
-    ];
-    for(const[cx,cy,r] of circles){
-      const g=ctx.createRadialGradient(cx,cy,r*0.30,cx,cy,r);
-      g.addColorStop(0,    "rgba(255,255,255,1.00)");
-      g.addColorStop(0.55, "rgba(255,255,255,0.95)");
-      g.addColorStop(0.85, "rgba(255,255,255,0.55)");
-      g.addColorStop(1,    "rgba(255,255,255,0)");
-      ctx.fillStyle=g;
-      ctx.fillRect(cx-r,cy-r,r*2,r*2);
-    }
+    const grad=ctx.createRadialGradient(256,256,0,256,256,256);
+    grad.addColorStop(0,    `rgba(255,255,255,${opacity})`);
+    grad.addColorStop(0.45, `rgba(255,255,255,${opacity*0.55})`);
+    grad.addColorStop(1,    "rgba(255,255,255,0)");
+    ctx.fillStyle=grad; ctx.fillRect(0,0,512,512);
     const tex=new THREE.CanvasTexture(cv);
-    tex.minFilter=THREE.LinearFilter;
-    const sp=new THREE.Sprite(new THREE.SpriteMaterial({
-      map:tex, transparent:true, depthWrite:false, fog:false
-    }));
-    sp.userData.skipRaycast=true;
-    sp.renderOrder=5;
-    return sp;
+    const mat=new THREE.MeshBasicMaterial({
+      map:tex, transparent:true, depthWrite:false,
+      side:THREE.DoubleSide, fog:false
+    });
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(size,size), mat);
+    p.rotation.x=-Math.PI/2;
+    p.position.y=y;
+    p.renderOrder=5;
+    return p;
   }
-  function placeCloud(x,y,z,w){
-    const sp=makeCloudSprite();
-    sp.position.set(x,y,z);
-    sp.scale.set(w, w*0.5, 1);
-    scene.add(sp);
-  }
-  // Around Actinver (chunky cloud cluster hugging the pyramid roof)
-  placeCloud(-5.4, 2.5, 0.8, 3.8);
-  placeCloud(-3.2, 2.2,-0.6, 3.4);
-  placeCloud(-4.5, 3.4, 0.3, 3.6);
-  // Around Alterna (cloud cluster wrapping the silver spire)
-  placeCloud( 5.4, 2.3,-0.4, 3.8);
-  placeCloud( 3.2, 2.6, 0.6, 3.4);
-  placeCloud( 4.5, 3.3, 0.0, 3.6);
+  // 4 layers extending DOWN so the lowest one touches the
+  // Actinver pyramid tip (~2.7), middle layers wrap the spire of
+  // Alterna (~3.8), top layer keeps the soft halo above.
+  scene.add(makeCloudPlane(2.6, 24, 0.34));
+  scene.add(makeCloudPlane(3.2, 28, 0.30));
+  scene.add(makeCloudPlane(3.8, 32, 0.24));
+  scene.add(makeCloudPlane(4.5, 36, 0.18));
 
   const NAVY = 0x0d1e6a;     // app navy tone
   const GOLD = 0xc6a028;
@@ -5700,15 +5687,16 @@ body.vip-active .topbar { display: none !important; }
   function addFloorLabel(title, subtitle, x, z, sx, sy){
     const sp = makeFloorLabel(title, subtitle);
     if (sx && sy) sp.scale.set(sx, sy, 1);
-    sp.position.set(x, -1.20, z);
+    sp.position.set(x, -1.45, z);
     scene.add(sp);
   }
-  // Pulled back a bit so they don't fall off the bottom of the
-  // visible area, and lifted to y=-1.20 so the full plaque is comfortably
-  // inside the viewport on every aspect ratio.
-  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 3.10, 1.80, 0.55);
-  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 3.10, 1.80, 0.55);
-  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 4.30, 1.80, 0.55);
+  // Small (1.40 x 0.42) and placed just in front of each object's
+  // base — not pushed far out. Same z offset under each tower / vault
+  // so the three plaques line up as one harmonious row of pedestal
+  // labels.
+  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 2.10, 1.40, 0.42);
+  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 2.10, 1.40, 0.42);
+  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 3.95, 1.40, 0.42);
 
   /* ============================================================
      ARCELIA — torso/3D model placed BEHIND the vault so her bust
@@ -5736,14 +5724,12 @@ body.vip-active .topbar { display: none !important; }
     //    like a sticker).
     const vault = window.__vault;
     const targetX = 0;
-    // Touch the safe's back face from outside, so her body extends
-    // slightly OVER the safe top and her clasped arms read as resting
-    // ON the safe lid.
-    const targetZ = vault ? (vault.userData.backZ - 0.05) : 0.6;
+    // Move her FORWARD onto the safe lid, centred over the vault,
+    // and lift her bbox so the bottom sits AT the lid — her clasped
+    // arms then naturally land on the safe top.
+    const targetZ = vault ? vault.position.z : 2.4;
     const vaultTop = vault ? vault.userData.topY : 0.20;
-    // Drop her chest down to safe-top level so the arms naturally
-    // land on the lid in screen space.
-    const targetBottomY = vaultTop - 0.60;
+    const targetBottomY = vaultTop - 0.15;
 
     const scaledCenter = rawCenter.clone().multiplyScalar(s);
     const scaledMinY   = rawBox.min.y * s;
@@ -5754,9 +5740,9 @@ body.vip-active .topbar { display: none !important; }
       targetZ  - scaledCenter.z
     );
 
-    const baseRotY = -0.18;     // slight 3/4 view so depth reads
+    const baseRotY = -0.10;     // very subtle 3/4 turn
     m.rotation.y = baseRotY;
-    m.rotation.x = -0.12;       // ~7° forward lean over the safe
+    m.rotation.x = 0;           // upright — arms rest flat on the lid
 
     // 4) Idle animation — very subtle breathing + look-around so the
     //    user immediately sees this is a 3D model and not a photo.
