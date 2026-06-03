@@ -5263,37 +5263,54 @@ body.vip-active .topbar { display: none !important; }
      with high reflectivity for the "crystal" look.
      =========================================================== */
   function makeGlassWindowTexture(opts){
-    const cols   = opts.cols   || 6;
-    const floors = opts.floors || 16;
-    const frame  = opts.frame  || "#1a2444";
+    const cols   = opts.cols   || 4;
+    const floors = opts.floors || 12;
+    const frame  = opts.frame  || "#101a32";
     const tint   = opts.tint   || [120,170,255];
     const cv = document.createElement("canvas");
-    cv.width = 512; cv.height = 1024;
+    cv.width = 1024; cv.height = 2048;
     const c = cv.getContext("2d");
     c.fillStyle = frame; c.fillRect(0,0,cv.width,cv.height);
-    const cw = cv.width  / cols;
-    const ch = cv.height / floors;
-    const pad = 3;
+    const cw  = cv.width  / cols;
+    const ch  = cv.height / floors;
+    const pad = 8;
     for(let f=0; f<floors; f++){
       for(let cc=0; cc<cols; cc++){
-        const br = 0.55 + Math.random()*0.45;
-        const r = Math.round(tint[0]*br);
-        const g = Math.round(tint[1]*br);
-        const b = Math.round(tint[2]*br);
-        const grad = c.createLinearGradient(cc*cw, f*ch, cc*cw+cw, f*ch+ch);
-        grad.addColorStop(0,    `rgba(${r},${g},${b},.95)`);
-        grad.addColorStop(0.6,  `rgba(${Math.round(r*1.15)},${Math.round(g*1.15)},${Math.round(b*1.15)},.95)`);
-        grad.addColorStop(1,    `rgba(${Math.round(r*0.7)},${Math.round(g*0.7)},${Math.round(b*0.75)},.95)`);
+        const x = cc*cw + pad;
+        const y = f*ch  + pad;
+        const w = cw - pad*2;
+        const h = ch - pad*2;
+        const br = 0.65 + Math.random()*0.35;
+        const r = Math.min(255, Math.round(tint[0]*br));
+        const g = Math.min(255, Math.round(tint[1]*br));
+        const b = Math.min(255, Math.round(tint[2]*br));
+        // Vertical gradient per pane: light top → base color → dark bottom
+        const grad = c.createLinearGradient(x, y, x, y+h);
+        grad.addColorStop(0,    `rgb(${Math.min(255,Math.round(r*1.35))},${Math.min(255,Math.round(g*1.35))},${Math.min(255,Math.round(b*1.35))})`);
+        grad.addColorStop(0.45, `rgb(${r},${g},${b})`);
+        grad.addColorStop(1,    `rgb(${Math.round(r*0.55)},${Math.round(g*0.55)},${Math.round(b*0.60)})`);
         c.fillStyle = grad;
-        c.fillRect(cc*cw+pad, f*ch+pad, cw-pad*2, ch-pad*2);
-        c.fillStyle = "rgba(255,255,255,0.18)";
-        c.fillRect(cc*cw+pad, f*ch+pad, cw-pad*2, 2);
-        c.fillStyle = "rgba(0,0,0,0.18)";
-        c.fillRect(cc*cw+pad, f*ch+ch-pad-2, cw-pad*2, 2);
+        c.fillRect(x, y, w, h);
+        // Diagonal reflection sweep (subtle)
+        c.fillStyle = "rgba(255,255,255,0.10)";
+        c.beginPath();
+        c.moveTo(x,           y);
+        c.lineTo(x+w*0.45,    y);
+        c.lineTo(x+w*0.05,    y+h);
+        c.lineTo(x,           y+h);
+        c.closePath();
+        c.fill();
+        // Frame edges on every pane (white top + dark bottom = depth)
+        c.fillStyle = "rgba(255,255,255,0.45)";
+        c.fillRect(x, y, w, 2);
+        c.fillStyle = "rgba(0,0,0,0.40)";
+        c.fillRect(x, y+h-2, w, 2);
       }
     }
     const tex = new THREE.CanvasTexture(cv);
-    tex.anisotropy = 8;
+    tex.anisotropy = 16;
+    tex.minFilter = THREE.LinearMipMapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
     tex.needsUpdate = true;
     return tex;
   }
@@ -5338,20 +5355,28 @@ body.vip-active .topbar { display: none !important; }
 
   /* ACTINVER — gold-tinted glass tower (left) */
   function buildActinver(){
-    const H = 4.6;
+    const H = 5.0;
     const g = buildGlassTower({
-      w:1.7, h:H, d:1.7,
-      cols:4, floors:13,
-      tint:[210,170,80],
-      frame:"#2a2410",
+      w:1.85, h:H, d:1.85,
+      cols:3, floors:10,
+      tint:[228,190,95],
+      frame:"#1a1407",
       edge:0xd9b85a,
       reflect:0xc6a028
     });
-    const roof = new THREE.Mesh(
-      new THREE.ConeGeometry(1.10, 0.85, 4),
-      new THREE.MeshStandardMaterial({color:GOLD,metalness:.88,roughness:.2,emissive:GOLD,emissiveIntensity:.22})
+    // Crown cap (thin gold rim around the top)
+    const crownRim = new THREE.Mesh(
+      new THREE.BoxGeometry(1.95, 0.10, 1.95),
+      new THREE.MeshStandardMaterial({color:GOLD,metalness:.85,roughness:.25,emissive:GOLD,emissiveIntensity:.20})
     );
-    roof.position.y = H + 0.42;
+    crownRim.position.y = H + 0.05;
+    crownRim.castShadow = true; g.add(crownRim);
+    // Golden pyramid roof
+    const roof = new THREE.Mesh(
+      new THREE.ConeGeometry(1.20, 0.95, 4),
+      new THREE.MeshStandardMaterial({color:GOLD,metalness:.90,roughness:.18,emissive:GOLD,emissiveIntensity:.25})
+    );
+    roof.position.y = H + 0.55;
     roof.rotation.y = Math.PI/4;
     roof.castShadow = true;
     g.add(roof);
@@ -5362,29 +5387,33 @@ body.vip-active .topbar { display: none !important; }
 
   /* ALTERNA — blue glass tower (right) */
   function buildUSA(){
-    const H = 5.4;
+    const H = 5.6;
     const g = buildGlassTower({
-      w:1.4, h:H, d:1.4,
-      cols:4, floors:16,
-      tint:[110,150,240],
-      frame:"#0e1c44",
+      w:1.55, h:H, d:1.55,
+      cols:3, floors:12,
+      tint:[120,165,255],
+      frame:"#091128",
       edge:0xbdd0ff,
       reflect:0x6a8cff
     });
-    // Slim spire
+    // Silver rim at the top
+    const rim = new THREE.Mesh(
+      new THREE.BoxGeometry(1.65, 0.08, 1.65),
+      new THREE.MeshStandardMaterial({color:0xdfe6f5,metalness:.85,roughness:.25})
+    );
+    rim.position.y = H + 0.04; g.add(rim);
+    // Slim metallic spire
     const spire = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.03, 0.10, 1.4, 8),
+      new THREE.CylinderGeometry(0.025, 0.10, 1.5, 12),
       new THREE.MeshStandardMaterial({color:0xdfe6f5,metalness:.85,roughness:.2})
     );
-    spire.position.y = H + 0.70;
-    g.add(spire);
-    // Tiny red flag
+    spire.position.y = H + 0.80; g.add(spire);
+    // Tiny red flag near the top of the spire
     const flag = new THREE.Mesh(
-      new THREE.BoxGeometry(.32,.20,.03),
+      new THREE.BoxGeometry(.30,.18,.03),
       new THREE.MeshStandardMaterial({color:0xcc2222,metalness:.2,roughness:.6})
     );
-    flag.position.set(.20, H + 1.05, 0);
-    g.add(flag);
+    flag.position.set(.18, H + 1.15, 0); g.add(flag);
     g.position.set(4.2, -1.8, 0);
     scene.add(g);
     objects.push({group:g,key:"usa",hit:g});
@@ -5497,32 +5526,52 @@ body.vip-active .topbar { display: none !important; }
   buildUSA();
   buildVault();
 
-  /* Small floor labels (instead of the big floating ones) */
-  function makeFloorLabel(text){
+  /* ===========================================================
+     FLOOR LABELS — matching the app's typography (bold sans-serif
+     title + lighter weighted subtitle, navy on white) so it reads
+     consistent with the menu cards ("Estrategias" style).
+     =========================================================== */
+  const FONT_STACK = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial";
+  function makeFloorLabel(title, subtitle){
     const cv = document.createElement("canvas");
-    cv.width = 512; cv.height = 96;
+    cv.width = 900; cv.height = 260;
     const c = cv.getContext("2d");
     c.clearRect(0,0,cv.width,cv.height);
+    // Title — same look as .menuCard .title (weight 900, dark navy)
     c.fillStyle = "#0d1e6a";
-    c.font = "800 44px system-ui";
-    c.textAlign = "center"; c.textBaseline = "middle";
-    c.fillText(text, 256, 50);
+    c.font = "900 96px " + FONT_STACK;
+    c.textAlign = "center";
+    c.textBaseline = "alphabetic";
+    c.fillText(title, cv.width/2, 122);
+    // Subtitle — same hierarchy as .menuCard .desc (lighter, smaller)
+    if (subtitle){
+      c.fillStyle = "rgba(13,30,106,0.55)";
+      c.font = "600 44px " + FONT_STACK;
+      c.fillText(subtitle, cv.width/2, 196);
+    }
     const tex = new THREE.CanvasTexture(cv);
     tex.minFilter = THREE.LinearFilter;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
-    sp.scale.set(1.5, 0.28, 1);
+    tex.anisotropy = 8;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map:tex, transparent:true, depthTest:false
+    }));
+    // Aspect ~3.46 — keep that ratio. World width 1.9 → h 0.55.
+    sp.scale.set(1.9, 0.55, 1);
     sp.userData.skipRaycast = true;
+    sp.renderOrder = 20;
     return sp;
   }
-  function addFloorLabel(text,x,z){
-    const sp = makeFloorLabel(text);
-    sp.position.set(x, -1.55, z);
-    sp.renderOrder = 10;
+  // Place each label well separated so they never overlap each other.
+  // Buildings sit at x = ±4.2; labels carry that same x. Vault sits
+  // forward at z=2.4, its label sits a bit further in front.
+  function addFloorLabel(title, subtitle, x, z){
+    const sp = makeFloorLabel(title, subtitle);
+    sp.position.set(x, -1.45, z);
     scene.add(sp);
   }
-  addFloorLabel("ACTINVER",   -4.2, 1.30);
-  addFloorLabel("ALTERNA",     4.2, 1.30);
-  addFloorLabel("PROTECCIÓN",  0.0, 3.55);
+  addFloorLabel("ACTINVER",   "$35.7M MXN",      -4.2, 1.95);
+  addFloorLabel("ALTERNA",    "$200,000 USD",     4.2, 1.95);
+  addFloorLabel("PROTECCIÓN", "$3,000,000 MXN",  0.0, 4.10);
 
   /* ============================================================
      ARCELIA — torso/3D model placed BEHIND the vault so her bust
@@ -5550,15 +5599,14 @@ body.vip-active .topbar { display: none !important; }
     const s = (rawSize.y > 0) ? (TARGET_H / rawSize.y) : 0.02;
     m.scale.setScalar(s);
 
-    // 3) Place her LEANING ON the vault: torso right behind the back
-    //    face (almost touching), bottom of bbox just under vault top
-    //    so the body visually rests on the safe, plus a small forward
-    //    lean so it reads as "leaning on" instead of "standing behind".
+    // 3) Place her ON TOP of the vault, with a slight 3/4 turn so the
+    //    camera reads the depth of the model (a perfectly head-on
+    //    pose makes any 3D bust look pasted in like a 2D photo).
     const vault = window.__vault;
     const targetX = 0;
-    const targetZ = vault ? (vault.userData.backZ - 0.12) : 0.6;
+    const targetZ = vault ? vault.position.z : 2.4;     // centred on the safe
     const vaultTop = vault ? vault.userData.topY : 0.20;
-    const targetBottomY = vaultTop - 0.55;
+    const targetBottomY = vaultTop + 0.02;              // sit on top of the lid
 
     const scaledCenter = rawCenter.clone().multiplyScalar(s);
     const scaledMinY   = rawBox.min.y * s;
@@ -5569,8 +5617,29 @@ body.vip-active .topbar { display: none !important; }
       targetZ  - scaledCenter.z
     );
 
-    m.rotation.y = 0;          // face camera
-    m.rotation.x = -0.18;       // ~10° forward lean over the safe
+    const baseRotY = -0.22;     // ~12° to her right → reveals 3D form
+    m.rotation.y = baseRotY;
+    m.rotation.x = 0;
+
+    // 4) Idle animation — very subtle breathing + look-around so the
+    //    user immediately sees this is a 3D model and not a photo.
+    m.userData.baseY      = m.position.y;
+    m.userData.baseRotY   = baseRotY;
+    window.__arcelia = m;
+
+    // 5) Dedicated key light on Arcelia so the bust gets proper
+    //    highlights and shadow falloff across her cheeks/hair.
+    const charLight = new THREE.SpotLight(0xfff4e0, 1.4, 12, Math.PI/5, 0.55, 1.5);
+    charLight.position.set(targetX - 1.2, vaultTop + 2.6, targetZ + 1.8);
+    charLight.target.position.set(targetX, vaultTop + 0.6, targetZ);
+    charLight.castShadow = true;
+    charLight.shadow.mapSize.set(1024,1024);
+    charLight.shadow.bias = -0.0005;
+    scene.add(charLight);
+    scene.add(charLight.target);
+    const charFill = new THREE.PointLight(0xeaf2ff, 0.45, 6);
+    charFill.position.set(targetX + 1.0, vaultTop + 1.3, targetZ + 1.4);
+    scene.add(charFill);
 
     scene.add(m);
   },undefined,(err)=>{
@@ -5616,13 +5685,21 @@ body.vip-active .topbar { display: none !important; }
     txT=((e.clientY/H2)-.5)*.12;tyT=((e.clientX/W2)-.5)*-.18;
   });
 
-  /* ── Render loop (static scene, only gentle camera tilt) ── */
+  /* Render loop — gentle camera tilt + subtle 3D idle for Arcelia
+     (breathing rise/fall + slow look-around) so the bust reads as a
+     true 3D model, not a flat image pasted on the scene. */
   function animate(){
     requestAnimationFrame(animate);
     tX+=(txT-tX)*.04;tY+=(tyT-tY)*.04;
     camera.position.x+=(tY*1.2-camera.position.x)*.03;
     camera.position.y+=(1.9-tX*.8-camera.position.y)*.03;
     camera.lookAt(0,.4,0);
+    if (window.__arcelia){
+      const t = performance.now()*0.001;
+      const a = window.__arcelia;
+      a.position.y = a.userData.baseY      + Math.sin(t*1.5)*0.025;
+      a.rotation.y = a.userData.baseRotY   + Math.sin(t*0.55)*0.08;
+    }
     renderer.render(scene,camera);
   }
 
