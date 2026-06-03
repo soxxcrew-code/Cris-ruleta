@@ -4920,7 +4920,7 @@ body.vip-active .topbar { display: none !important; }
 }
 #vh3 > * { pointer-events:auto; }
 .vh3logo { font-size:15px;font-weight:900;letter-spacing:.04em;color:#0d1e6a;font-family:system-ui; }
-.vh3name { font-size:13px;font-weight:600;color:rgba(13,30,106,.65);font-family:system-ui;letter-spacing:.02em; }
+.vh3name { font-size:17px;font-weight:700;color:rgba(13,30,106,.80);font-family:system-ui;letter-spacing:.04em; }
 .vh3back { background:rgba(13,30,106,.06);border:1px solid rgba(13,30,106,.18);
   color:rgba(13,30,106,.8);font-size:12px;font-weight:700;
   padding:7px 16px;border-radius:999px;cursor:pointer;font-family:system-ui;transition:.2s; }
@@ -4974,7 +4974,7 @@ body.vip-active .topbar { display: none !important; }
 <div id="vipRoot3">
   <div id="vh3">
     <div class="vh3logo">P360</div>
-    <div class="vh3name">Arcelia Mendoza Ojeda</div>
+    <div class="vh3name">Estrategia de Patrimonio</div>
     <button class="vh3back" id="vipBack3">&#8592; Volver</button>
   </div>
   <canvas id="vipC3"></canvas>
@@ -5257,10 +5257,11 @@ body.vip-active .topbar { display: none !important; }
     p.renderOrder=5;
     return p;
   }
-  // Three layers wrapping the upper third of the towers
-  scene.add(makeCloudPlane(3.6, 26, 0.32));
-  scene.add(makeCloudPlane(4.5, 30, 0.26));
-  scene.add(makeCloudPlane(5.4, 34, 0.20));
+  // Three layers WRAPPING the upper third of the towers (Actinver
+  // tops out around y≈2.7, Alterna spire around y≈3.8).
+  scene.add(makeCloudPlane(2.2, 24, 0.34));
+  scene.add(makeCloudPlane(3.0, 28, 0.28));
+  scene.add(makeCloudPlane(3.8, 32, 0.22));
 
   const NAVY = 0x0d1e6a;     // app navy tone
   const GOLD = 0xc6a028;
@@ -5676,16 +5677,17 @@ body.vip-active .topbar { display: none !important; }
   function addFloorLabel(title, subtitle, x, z, sx, sy){
     const sp = makeFloorLabel(title, subtitle);
     if (sx && sy) sp.scale.set(sx, sy, 1);
-    sp.position.set(x, -1.72, z);
+    sp.position.set(x, -1.55, z);
     scene.add(sp);
   }
-  // Pushed clearly forward of each building onto the white floor.
-  // Actinver/Alterna z=3.0 = ~2 units in front of the tower base;
-  // Proteccion z=5.5 = well in front of the vault. y=-1.72 keeps
-  // them anchored to the floor instead of floating in mid-air.
-  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 3.00, 1.95, 0.62);
-  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 3.00, 1.95, 0.62);
-  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 5.50, 1.95, 0.62);
+  // Pushed all the way forward onto the white floor: the closer the
+  // sprite is to the camera, the lower it projects on screen, so the
+  // plaques sit clearly below each object instead of overlapping it.
+  // Slightly shorter sprite height (0.50) and a more readable width
+  // (1.70) keep the title weight while clearing the lobby of each tower.
+  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 4.40, 1.70, 0.50);
+  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 4.40, 1.70, 0.50);
+  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 6.20, 1.70, 0.50);
 
   /* ============================================================
      ARCELIA — torso/3D model placed BEHIND the vault so her bust
