@@ -5684,10 +5684,10 @@ body.vip-active .topbar { display: none !important; }
     sp.renderOrder = 20;
     return sp;
   }
-  function addFloorLabel(title, subtitle, x, z, sx, sy){
+  function addFloorLabel(title, subtitle, x, z, sx, sy, cy){
     const sp = makeFloorLabel(title, subtitle);
     if (sx && sy) sp.scale.set(sx, sy, 1);
-    sp.position.set(x, -1.45, z);
+    sp.position.set(x, cy ?? -1.45, z);
     scene.add(sp);
   }
   // Small (1.40 x 0.42) and placed just in front of each object's
@@ -5696,7 +5696,8 @@ body.vip-active .topbar { display: none !important; }
   // labels.
   addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 2.10, 1.40, 0.42);
   addFloorLabel("Alterna",     "$200,000 USD",     4.2, 2.10, 1.40, 0.42);
-  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 3.95, 1.40, 0.42);
+  // Proteccion: same z but a touch lower on the floor (cy = -1.65).
+  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 3.95, 1.40, 0.42, -1.65);
 
   /* ============================================================
      ARCELIA — torso/3D model placed BEHIND the vault so her bust
@@ -5714,7 +5715,7 @@ body.vip-active .topbar { display: none !important; }
 
     // 2) Auto-scale so the model is ~2.2 world units tall — a torso that
     //    pokes about 1.0u above the ~2.0u vault.
-    const TARGET_H = 2.2;
+    const TARGET_H = 1.8;
     const s = (rawSize.y > 0) ? (TARGET_H / rawSize.y) : 0.02;
     m.scale.setScalar(s);
 
@@ -5724,10 +5725,10 @@ body.vip-active .topbar { display: none !important; }
     //    like a sticker).
     const vault = window.__vault;
     const targetX = 0;
-    // Move her FORWARD onto the safe lid, centred over the vault,
-    // and lift her bbox so the bottom sits AT the lid — her clasped
-    // arms then naturally land on the safe top.
-    const targetZ = vault ? vault.position.z : 2.4;
+    // Just behind the safe's back face so her body doesn't clip
+    // through the vault geometry. Her clasped arms still extend
+    // forward over the lid.
+    const targetZ = vault ? (vault.userData.backZ - 0.05) : 0.6;
     const vaultTop = vault ? vault.userData.topY : 0.20;
     const targetBottomY = vaultTop - 0.15;
 
