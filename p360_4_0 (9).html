@@ -5466,6 +5466,17 @@ body.vip-active .topbar { display: none !important; }
     window.__vault = g;
   }
 
+  /* Shared GLTFLoader for the whole scene. Declared BEFORE any
+     build*() call so placeGlbBuilding() and the Arcelia loader all
+     share the same instance (avoids the temporal-dead-zone ReferenceError
+     that left the canvas completely empty). DRACO decoder is attached
+     because mujer.glb is Draco-compressed; the Kenney building GLBs
+     are not, so they load without it. */
+  const loader = new THREE.GLTFLoader();
+  const dracoLoader = new THREE.DRACOLoader();
+  dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+  loader.setDRACOLoader(dracoLoader);
+
   buildActinver();
   buildUSA();
   buildVault();
@@ -5542,12 +5553,6 @@ body.vip-active .topbar { display: none !important; }
      appears above the safe. Auto-scales to the world so it works
      no matter the GLB unit (cm / mm / m).
      ============================================================ */
-  const loader=new THREE.GLTFLoader();
-  // Required because mujer.glb is Draco-compressed (KHR_draco_mesh_compression).
-  // Without this, GLTFLoader cannot decode the geometry and fails silently.
-  const dracoLoader=new THREE.DRACOLoader();
-  dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
-  loader.setDRACOLoader(dracoLoader);
   loader.load("mujer.glb",(gltf)=>{
     const m=gltf.scene;
     m.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
