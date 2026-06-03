@@ -5728,10 +5728,10 @@ body.vip-active .topbar { display: none !important; }
     const targetX = 0;
     // Stepped a bit further back so she clearly sits BEHIND the safe
     // without clipping the vault geometry.
-    const targetZ = vault ? (vault.userData.backZ - 0.18) : 0.6;
+    const targetZ = vault ? (vault.userData.backZ - 0.20) : 0.6;
     const vaultTop = vault ? vault.userData.topY : 0.20;
-    // Nudged a touch higher so a bit more bust shows above the lid.
-    const targetBottomY = vaultTop + 0.03;
+    // User-requested fine-tune.
+    const targetBottomY = vaultTop + 0.05;
 
     const scaledCenter = rawCenter.clone().multiplyScalar(s);
     const scaledMinY   = rawBox.min.y * s;
