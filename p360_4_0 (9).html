@@ -5243,17 +5243,21 @@ body.vip-active .topbar { display: none !important; }
      ============================================================ */
   function makeCloudSprite(){
     const cv=document.createElement("canvas");
-    cv.width=512; cv.height=256;
+    cv.width=1024; cv.height=512;
     const ctx=cv.getContext("2d");
-    // 7 overlapping soft-white discs of varied size = fluffy cloud
+    // Larger overlapping discs and a near-solid white core so the
+    // cloud reads clearly white (like the PowerPoint mockup), not as
+    // a grey haze.
     const circles=[
-      [120,170,82],[200,135,98],[280,150,88],[360,175,76],
-      [225,200,62],[155,190,58],[325,195,68]
+      [240,330,170],[400,260,200],[560,290,180],
+      [720,340,160],[450,400,135],[300,380,120],
+      [640,400,140],[500,210,145]
     ];
     for(const[cx,cy,r] of circles){
-      const g=ctx.createRadialGradient(cx,cy,r*0.15,cx,cy,r);
-      g.addColorStop(0,    "rgba(255,255,255,0.96)");
-      g.addColorStop(0.55, "rgba(255,255,255,0.78)");
+      const g=ctx.createRadialGradient(cx,cy,r*0.30,cx,cy,r);
+      g.addColorStop(0,    "rgba(255,255,255,1.00)");
+      g.addColorStop(0.55, "rgba(255,255,255,0.95)");
+      g.addColorStop(0.85, "rgba(255,255,255,0.55)");
       g.addColorStop(1,    "rgba(255,255,255,0)");
       ctx.fillStyle=g;
       ctx.fillRect(cx-r,cy-r,r*2,r*2);
@@ -5273,14 +5277,14 @@ body.vip-active .topbar { display: none !important; }
     sp.scale.set(w, w*0.5, 1);
     scene.add(sp);
   }
-  // Around Actinver (top ~ y=2.7, pyramid at y≈3.3)
-  placeCloud(-5.3, 2.7, 0.6, 2.6);
-  placeCloud(-3.3, 2.5,-0.4, 2.2);
-  placeCloud(-4.6, 3.5, 0.2, 2.4);
-  // Around Alterna (body top ~ y=2.1, spire goes up to y≈3.8)
-  placeCloud( 5.3, 2.4,-0.3, 2.5);
-  placeCloud( 3.4, 2.8, 0.5, 2.1);
-  placeCloud( 4.6, 3.4, 0.0, 2.4);
+  // Around Actinver (chunky cloud cluster hugging the pyramid roof)
+  placeCloud(-5.4, 2.5, 0.8, 3.8);
+  placeCloud(-3.2, 2.2,-0.6, 3.4);
+  placeCloud(-4.5, 3.4, 0.3, 3.6);
+  // Around Alterna (cloud cluster wrapping the silver spire)
+  placeCloud( 5.4, 2.3,-0.4, 3.8);
+  placeCloud( 3.2, 2.6, 0.6, 3.4);
+  placeCloud( 4.5, 3.3, 0.0, 3.6);
 
   const NAVY = 0x0d1e6a;     // app navy tone
   const GOLD = 0xc6a028;
@@ -5696,17 +5700,15 @@ body.vip-active .topbar { display: none !important; }
   function addFloorLabel(title, subtitle, x, z, sx, sy){
     const sp = makeFloorLabel(title, subtitle);
     if (sx && sy) sp.scale.set(sx, sy, 1);
-    sp.position.set(x, -1.55, z);
+    sp.position.set(x, -1.20, z);
     scene.add(sp);
   }
-  // Pushed all the way forward onto the white floor: the closer the
-  // sprite is to the camera, the lower it projects on screen, so the
-  // plaques sit clearly below each object instead of overlapping it.
-  // Slightly shorter sprite height (0.50) and a more readable width
-  // (1.70) keep the title weight while clearing the lobby of each tower.
-  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 4.40, 1.70, 0.50);
-  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 4.40, 1.70, 0.50);
-  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 4.20, 1.70, 0.50);
+  // Pulled back a bit so they don't fall off the bottom of the
+  // visible area, and lifted to y=-1.20 so the full plaque is comfortably
+  // inside the viewport on every aspect ratio.
+  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 3.10, 1.80, 0.55);
+  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 3.10, 1.80, 0.55);
+  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 4.30, 1.80, 0.55);
 
   /* ============================================================
      ARCELIA — torso/3D model placed BEHIND the vault so her bust
