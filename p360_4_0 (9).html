@@ -5731,7 +5731,7 @@ body.vip-active .topbar { display: none !important; }
     const targetZ = vault ? (vault.userData.backZ - 0.13) : 0.6;
     const vaultTop = vault ? vault.userData.topY : 0.20;
     // User-requested fine-tune.
-    const targetBottomY = vaultTop - 0.05;
+    const targetBottomY = vaultTop + 0.15;
 
     const scaledCenter = rawCenter.clone().multiplyScalar(s);
     const scaledMinY   = rawBox.min.y * s;
