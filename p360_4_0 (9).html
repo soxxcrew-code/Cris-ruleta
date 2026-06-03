@@ -4920,7 +4920,9 @@ body.vip-active .topbar { display: none !important; }
 }
 #vh3 > * { pointer-events:auto; }
 .vh3logo { font-size:15px;font-weight:900;letter-spacing:.04em;color:#0d1e6a;font-family:system-ui; }
-.vh3name { font-size:17px;font-weight:700;color:rgba(13,30,106,.80);font-family:system-ui;letter-spacing:.04em; }
+.vh3headerStack { display:flex;flex-direction:column;align-items:center;line-height:1.05; }
+.vh3title { font-size:24px;font-weight:800;color:rgba(13,30,106,.92);font-family:system-ui;letter-spacing:.02em; }
+.vh3subname { font-size:13px;font-weight:500;color:rgba(13,30,106,.55);font-family:system-ui;letter-spacing:.02em;margin-top:2px; }
 .vh3back { background:rgba(13,30,106,.06);border:1px solid rgba(13,30,106,.18);
   color:rgba(13,30,106,.8);font-size:12px;font-weight:700;
   padding:7px 16px;border-radius:999px;cursor:pointer;font-family:system-ui;transition:.2s; }
@@ -4974,7 +4976,10 @@ body.vip-active .topbar { display: none !important; }
 <div id="vipRoot3">
   <div id="vh3">
     <div class="vh3logo">P360</div>
-    <div class="vh3name">Estrategia de Patrimonio</div>
+    <div class="vh3headerStack">
+      <div class="vh3title">Patrimonio</div>
+      <div class="vh3subname">Arcelia Mendoza Ojeda</div>
+    </div>
     <button class="vh3back" id="vipBack3">&#8592; Volver</button>
   </div>
   <canvas id="vipC3"></canvas>
@@ -5161,7 +5166,7 @@ body.vip-active .topbar { display: none !important; }
   // Stronger fog from a closer distance — gives the whole scene
   // atmospheric depth and washes the back wall into the foreground so
   // everything feels part of one shared space.
-  scene.fog = new THREE.Fog(0xeef0f5, 8, 24);
+  scene.fog = new THREE.Fog(0xeef0f5, 16, 36);
 
   const camera = new THREE.PerspectiveCamera(42,1,.1,80);
   camera.position.set(0,1.9,10.5);
@@ -5232,36 +5237,50 @@ body.vip-active .topbar { display: none !important; }
   corn.position.set(0,ROOM.y+ROOM.h-.025,-ROOM.d/2+skT/2);scene.add(corn);
 
   /* ============================================================
-     ATMOSPHERIC CLOUD LAYERS — horizontal soft-white discs that
-     visually wrap the upper part of the buildings, so the haze
-     appears to pass OVER them. Stacked at multiple heights for a
-     soft volumetric look without needing real volumetric fog.
+     LOCALISED CLOUDS — cartoon-style cloud puffs placed individually
+     around the top of each tower (matches the PowerPoint mockup
+     better than a uniform horizontal haze).
      ============================================================ */
-  function makeCloudPlane(y, size, opacity){
+  function makeCloudSprite(){
     const cv=document.createElement("canvas");
-    cv.width=512; cv.height=512;
+    cv.width=512; cv.height=256;
     const ctx=cv.getContext("2d");
-    const grad=ctx.createRadialGradient(256,256,0,256,256,256);
-    grad.addColorStop(0,    `rgba(255,255,255,${opacity})`);
-    grad.addColorStop(0.45, `rgba(255,255,255,${opacity*0.55})`);
-    grad.addColorStop(1,    "rgba(255,255,255,0)");
-    ctx.fillStyle=grad; ctx.fillRect(0,0,512,512);
+    // 7 overlapping soft-white discs of varied size = fluffy cloud
+    const circles=[
+      [120,170,82],[200,135,98],[280,150,88],[360,175,76],
+      [225,200,62],[155,190,58],[325,195,68]
+    ];
+    for(const[cx,cy,r] of circles){
+      const g=ctx.createRadialGradient(cx,cy,r*0.15,cx,cy,r);
+      g.addColorStop(0,    "rgba(255,255,255,0.96)");
+      g.addColorStop(0.55, "rgba(255,255,255,0.78)");
+      g.addColorStop(1,    "rgba(255,255,255,0)");
+      ctx.fillStyle=g;
+      ctx.fillRect(cx-r,cy-r,r*2,r*2);
+    }
     const tex=new THREE.CanvasTexture(cv);
-    const mat=new THREE.MeshBasicMaterial({
-      map:tex, transparent:true, depthWrite:false,
-      side:THREE.DoubleSide, fog:false
-    });
-    const p=new THREE.Mesh(new THREE.PlaneGeometry(size,size), mat);
-    p.rotation.x=-Math.PI/2;
-    p.position.y=y;
-    p.renderOrder=5;
-    return p;
+    tex.minFilter=THREE.LinearFilter;
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({
+      map:tex, transparent:true, depthWrite:false, fog:false
+    }));
+    sp.userData.skipRaycast=true;
+    sp.renderOrder=5;
+    return sp;
   }
-  // Three layers WRAPPING the upper third of the towers (Actinver
-  // tops out around y≈2.7, Alterna spire around y≈3.8).
-  scene.add(makeCloudPlane(2.2, 24, 0.34));
-  scene.add(makeCloudPlane(3.0, 28, 0.28));
-  scene.add(makeCloudPlane(3.8, 32, 0.22));
+  function placeCloud(x,y,z,w){
+    const sp=makeCloudSprite();
+    sp.position.set(x,y,z);
+    sp.scale.set(w, w*0.5, 1);
+    scene.add(sp);
+  }
+  // Around Actinver (top ~ y=2.7, pyramid at y≈3.3)
+  placeCloud(-5.3, 2.7, 0.6, 2.6);
+  placeCloud(-3.3, 2.5,-0.4, 2.2);
+  placeCloud(-4.6, 3.5, 0.2, 2.4);
+  // Around Alterna (body top ~ y=2.1, spire goes up to y≈3.8)
+  placeCloud( 5.3, 2.4,-0.3, 2.5);
+  placeCloud( 3.4, 2.8, 0.5, 2.1);
+  placeCloud( 4.6, 3.4, 0.0, 2.4);
 
   const NAVY = 0x0d1e6a;     // app navy tone
   const GOLD = 0xc6a028;
@@ -5715,12 +5734,14 @@ body.vip-active .topbar { display: none !important; }
     //    like a sticker).
     const vault = window.__vault;
     const targetX = 0;
-    // Closer to the back face of the safe so her clasped hands can
-    // actually rest on the lid, not float behind it.
-    const targetZ = vault ? (vault.userData.backZ - 0.15) : 0.6;
+    // Touch the safe's back face from outside, so her body extends
+    // slightly OVER the safe top and her clasped arms read as resting
+    // ON the safe lid.
+    const targetZ = vault ? (vault.userData.backZ - 0.05) : 0.6;
     const vaultTop = vault ? vault.userData.topY : 0.20;
-    // A bit higher than v6: bust shows more, hands land on the lid.
-    const targetBottomY = vaultTop - 0.40;
+    // Drop her chest down to safe-top level so the arms naturally
+    // land on the lid in screen space.
+    const targetBottomY = vaultTop - 0.60;
 
     const scaledCenter = rawCenter.clone().multiplyScalar(s);
     const scaledMinY   = rawBox.min.y * s;
@@ -5731,9 +5752,9 @@ body.vip-active .topbar { display: none !important; }
       targetZ  - scaledCenter.z
     );
 
-    const baseRotY = -0.22;     // ~12° to her right → reveals 3D form
+    const baseRotY = -0.18;     // slight 3/4 view so depth reads
     m.rotation.y = baseRotY;
-    m.rotation.x = 0;
+    m.rotation.x = -0.12;       // ~7° forward lean over the safe
 
     // 4) Idle animation — very subtle breathing + look-around so the
     //    user immediately sees this is a 3D model and not a photo.
