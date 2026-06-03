@@ -5428,8 +5428,8 @@ body.vip-active .topbar { display: none !important; }
   /* ACTINVER — dark navy glass + GOLD architectural accents */
   function buildActinver(){
     const g = buildModernTower({
-      w: 1.70, d: 1.70,
-      floors: 12,
+      w: 1.45, d: 1.55,
+      floors: 10,
       cols: 3,
       glass:    0x1b2a4a,
       glassEm:  0x111b32,
@@ -5471,8 +5471,8 @@ body.vip-active .topbar { display: none !important; }
   /* ALTERNA — dark navy glass + SILVER architectural accents */
   function buildUSA(){
     const g = buildModernTower({
-      w: 1.45, d: 1.45,
-      floors: 14,
+      w: 1.25, d: 1.35,
+      floors: 12,
       cols: 3,
       glass:    0x1c2c4f,
       glassEm:  0x121e38,
@@ -5597,9 +5597,10 @@ body.vip-active .topbar { display: none !important; }
 
     // (Central floating sprite removed — a small label sits on the floor instead.)
 
-    // Sit base on floor (-1.8): g.position.y=-.8 so base bottom = -.8 + (-1.0) = -1.8
-    g.position.set(0, -.8, 2.4);
-    g.scale.setScalar(1.05);
+    // Sit base on floor at y=-1.8 with new 0.89 scale (−15%).
+    //   g.position.y + (-1.0)*s = -1.8  =>  g.position.y = -1.8 + s
+    g.position.set(0, -.91, 2.4);
+    g.scale.setScalar(0.89);
     scene.add(g);
     objects.push({group:g,key:"vault",hit:g});
 
@@ -5715,7 +5716,7 @@ body.vip-active .topbar { display: none !important; }
 
     // 2) Auto-scale so the model is ~2.2 world units tall — a torso that
     //    pokes about 1.0u above the ~2.0u vault.
-    const TARGET_H = 1.8;
+    const TARGET_H = 1.35;
     const s = (rawSize.y > 0) ? (TARGET_H / rawSize.y) : 0.02;
     m.scale.setScalar(s);
 
@@ -5725,12 +5726,12 @@ body.vip-active .topbar { display: none !important; }
     //    like a sticker).
     const vault = window.__vault;
     const targetX = 0;
-    // Just behind the safe's back face so her body doesn't clip
-    // through the vault geometry. Her clasped arms still extend
-    // forward over the lid.
-    const targetZ = vault ? (vault.userData.backZ - 0.05) : 0.6;
+    // Stepped a bit further back so she clearly sits BEHIND the safe
+    // without clipping the vault geometry.
+    const targetZ = vault ? (vault.userData.backZ - 0.30) : 0.6;
     const vaultTop = vault ? vault.userData.topY : 0.20;
-    const targetBottomY = vaultTop - 0.15;
+    // Lifted: less of her is hidden behind the safe lid.
+    const targetBottomY = vaultTop - 0.05;
 
     const scaledCenter = rawCenter.clone().multiplyScalar(s);
     const scaledMinY   = rawBox.min.y * s;
@@ -5761,18 +5762,21 @@ body.vip-active .topbar { display: none !important; }
       if(c.isMesh && c.material){
         const ms = Array.isArray(c.material) ? c.material : [c.material];
         ms.forEach(mat=>{
-          if (mat.emissive)         mat.emissiveIntensity = 0.06;
-          if ("metalness" in mat)  mat.metalness = Math.min(mat.metalness ?? 0, 0.30);
-          if ("roughness" in mat)  mat.roughness = Math.max(mat.roughness ?? 1, 0.55);
+          if (mat.emissive)         mat.emissiveIntensity = 0.10;
+          if ("metalness" in mat)  mat.metalness = Math.min(mat.metalness ?? 0, 0.35);
+          if ("roughness" in mat)  mat.roughness = Math.max(mat.roughness ?? 1, 0.50);
           mat.needsUpdate = true;
         });
       }
     });
-    // Soft fill light just for her so the bust catches a little
-    // warm highlight without re-introducing the "sticker" effect.
-    const arcGlow = new THREE.PointLight(0xfff0d6, 0.55, 5, 1.6);
-    arcGlow.position.set(0, vaultTop + 1.6, targetZ + 1.4);
-    scene.add(arcGlow);
+    // Dedicated key + fill so she lights up clearly without going
+    // back to the "sticker" look.
+    const arcKey = new THREE.PointLight(0xfff2dc, 1.10, 6, 1.5);
+    arcKey.position.set(targetX - 0.6, vaultTop + 1.9, targetZ + 1.8);
+    scene.add(arcKey);
+    const arcFill = new THREE.PointLight(0xe9f0ff, 0.55, 5, 1.6);
+    arcFill.position.set(targetX + 1.0, vaultTop + 1.2, targetZ + 1.2);
+    scene.add(arcFill);
 
     scene.add(m);
   },undefined,(err)=>{
