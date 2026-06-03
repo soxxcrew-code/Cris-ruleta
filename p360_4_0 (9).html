@@ -5157,39 +5157,42 @@ body.vip-active .topbar { display: none !important; }
   renderer.setClearColor(0xffffff,1);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
-  // Fog set further back so the room corners read clean
-  scene.fog = new THREE.Fog(0xffffff,22,55);
+  scene.background = new THREE.Color(0xf3f4f7);
+  // Stronger fog from a closer distance — gives the whole scene
+  // atmospheric depth and washes the back wall into the foreground so
+  // everything feels part of one shared space.
+  scene.fog = new THREE.Fog(0xf3f4f7, 12, 28);
 
   const camera = new THREE.PerspectiveCamera(42,1,.1,80);
-  // Slightly higher & farther back to read the room depth
   camera.position.set(0,1.9,10.5);
   camera.lookAt(0,.4,0);
 
-  /* Lights — bright white salon with directional depth */
-  scene.add(new THREE.AmbientLight(0xffffff,.55));
-  scene.add(new THREE.HemisphereLight(0xffffff,0xe8ecf5,.55));
-  const keyL=new THREE.DirectionalLight(0xffffff,1.35);
-  keyL.position.set(-5,9,6);keyL.castShadow=true;
-  keyL.shadow.mapSize.set(2048,2048);keyL.shadow.bias=-.0008;
-  keyL.shadow.camera.left=-12;keyL.shadow.camera.right=12;
-  keyL.shadow.camera.top=12;keyL.shadow.camera.bottom=-12;
-  keyL.shadow.radius=4;
+  /* Lights — softer, more cohesive. All warmer-tinted so buildings,
+     vault, walls and Arcelia share the same wash and no element sticks
+     out as overlit. */
+  scene.add(new THREE.AmbientLight(0xfcf6e8, .40));
+  scene.add(new THREE.HemisphereLight(0xfff5dc, 0xc9cfdd, .42));
+  const keyL = new THREE.DirectionalLight(0xfff2d8, 0.95);
+  keyL.position.set(-5,9,6); keyL.castShadow = true;
+  keyL.shadow.mapSize.set(2048,2048); keyL.shadow.bias = -0.0008;
+  keyL.shadow.camera.left=-12; keyL.shadow.camera.right=12;
+  keyL.shadow.camera.top=12;   keyL.shadow.camera.bottom=-12;
+  keyL.shadow.radius = 5;
   scene.add(keyL);
-  const fillL=new THREE.DirectionalLight(0xeef2ff,.55);
-  fillL.position.set(6,4,4);scene.add(fillL);
-  const rimL=new THREE.DirectionalLight(0xffffff,.4);
-  rimL.position.set(0,6,-8);scene.add(rimL);
+  const fillL = new THREE.DirectionalLight(0xe8eef8, 0.35);
+  fillL.position.set(6,4,4); scene.add(fillL);
+  const rimL  = new THREE.DirectionalLight(0xffffff, 0.22);
+  rimL.position.set(0,6,-8); scene.add(rimL);
 
   /* ============================================================
      WHITE ROOM — floor + back/side walls + ceiling + skirting
      so the safe and the buildings sit inside a real 3D box.
      ============================================================ */
   const ROOM = { w:18, d:18, h:9, y:-1.8 };
-  const wallMat  = new THREE.MeshStandardMaterial({color:0xfafbfe,metalness:0,roughness:1});
-  const floorMat = new THREE.MeshStandardMaterial({color:0xeef1f7,metalness:.05,roughness:.9});
-  const ceilMat  = new THREE.MeshStandardMaterial({color:0xffffff,metalness:0,roughness:1});
-  const skirtMat = new THREE.MeshStandardMaterial({color:0xdbe1ee,metalness:.1,roughness:.7});
+  const wallMat  = new THREE.MeshStandardMaterial({color:0xf2f1ec,metalness:0,roughness:1});
+  const floorMat = new THREE.MeshStandardMaterial({color:0xe6e4dd,metalness:.05,roughness:.9});
+  const ceilMat  = new THREE.MeshStandardMaterial({color:0xf8f6f0,metalness:0,roughness:1});
+  const skirtMat = new THREE.MeshStandardMaterial({color:0xcfcabd,metalness:.1,roughness:.7});
 
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w,ROOM.d),floorMat);
   floor.rotation.x=-Math.PI/2;floor.position.y=ROOM.y;
@@ -5258,109 +5261,209 @@ body.vip-active .topbar { display: none !important; }
   }
 
   /* ===========================================================
-     REAL 3D SKYSCRAPERS — Kenney City Kit (Commercial), CC0.
-        actinver.glb : skyscraper-d  (tall, stepped, 4 floors of windows)
-        alterna.glb  : skyscraper-b  (tall, classic glass facade)
-     Each loader auto-scales the model to fit the room, applies a
-     brand-tint material override (gold for Actinver, blue for
-     Alterna), and registers a clickable hit area for the existing
-     raycaster. Adds a small invisible bounding box collider so
-     clicks land easily even on thin glass parts.
+     MODERN GLASS SKYSCRAPERS — procedural with real architectural
+     geometry (floor bands + concrete slabs + vertical mullions +
+     ground-floor lobby + brand-accented crown). Both towers share
+     the same dark glass family so the scene reads as one city,
+     differentiated only by the metal accent color.
      =========================================================== */
-  function tintMaterial(child, color, opts){
-    if(!child.isMesh || !child.material) return;
-    opts = opts || {};
-    const mats = Array.isArray(child.material) ? child.material : [child.material];
-    mats.forEach((mat, i)=>{
-      // Clone so we don't mutate the loader's cache between models
-      const nm = mat.clone();
-      nm.color = new THREE.Color(color);
-      if (opts.metalness !== undefined) nm.metalness = opts.metalness;
-      if (opts.roughness !== undefined) nm.roughness = opts.roughness;
-      if (opts.emissive  !== undefined){
-        nm.emissive = new THREE.Color(opts.emissive);
-        nm.emissiveIntensity = opts.emissiveIntensity ?? 0.18;
-      }
-      if (Array.isArray(child.material)) child.material[i] = nm;
-      else child.material = nm;
+  function buildModernTower(opts){
+    const g = new THREE.Group();
+    const W       = opts.w       || 1.6;
+    const D       = opts.d       || 1.6;
+    const nFloors = opts.floors  || 18;
+    const cols    = opts.cols    || 3;
+    const floorH  = 0.22;
+    const slabH   = 0.04;
+    const totalH  = nFloors * (floorH + slabH);
+
+    const glassMat = new THREE.MeshStandardMaterial({
+      color:        opts.glass     || 0x1c2740,
+      metalness:    0.82,
+      roughness:    0.20,
+      emissive:     opts.glassEm   || 0x121b30,
+      emissiveIntensity: 0.10
     });
+    const slabMat = new THREE.MeshStandardMaterial({
+      color:        opts.slab      || 0xbac0cc,
+      metalness:    0.30,
+      roughness:    0.55
+    });
+    const mullMat = new THREE.MeshStandardMaterial({
+      color:        opts.mullion   || 0x6b7283,
+      metalness:    0.45,
+      roughness:    0.40
+    });
+    const accentMat = new THREE.MeshStandardMaterial({
+      color:        opts.accent    || 0x8a8f9a,
+      metalness:    0.78,
+      roughness:    0.25,
+      emissive:     opts.accent    || 0x8a8f9a,
+      emissiveIntensity: 0.12
+    });
+
+    // Ground-floor lobby — slightly bigger footprint, dark glass
+    const lobbyH = 0.50;
+    const lobby = new THREE.Mesh(
+      new THREE.BoxGeometry(W*1.06, lobbyH, D*1.06),
+      new THREE.MeshStandardMaterial({color:0x1a2138,metalness:0.55,roughness:0.35})
+    );
+    lobby.position.y = lobbyH/2;
+    lobby.castShadow=true; lobby.receiveShadow=true;
+    g.add(lobby);
+    // Gold/silver entry band at top of lobby
+    const lobbyTop = new THREE.Mesh(
+      new THREE.BoxGeometry(W*1.07, 0.04, D*1.07),
+      accentMat
+    );
+    lobbyTop.position.y = lobbyH + 0.02;
+    g.add(lobbyTop);
+
+    // Stack of glass floors + concrete slabs
+    const startY = lobbyH + 0.06;
+    for(let f=0; f<nFloors; f++){
+      const yBase = startY + f*(floorH+slabH);
+      const glass = new THREE.Mesh(
+        new THREE.BoxGeometry(W*0.97, floorH, D*0.97),
+        glassMat
+      );
+      glass.position.y = yBase + floorH/2;
+      glass.castShadow=true; glass.receiveShadow=true;
+      g.add(glass);
+      const slab = new THREE.Mesh(
+        new THREE.BoxGeometry(W*1.02, slabH, D*1.02),
+        slabMat
+      );
+      slab.position.y = yBase + floorH + slabH/2;
+      slab.castShadow=true; slab.receiveShadow=true;
+      g.add(slab);
+    }
+    const towerH = startY + totalH;
+
+    // Vertical mullions — visible bars dividing the glass into bays
+    const mullThickness = 0.045;
+    function vertMullion(x, z){
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(mullThickness, totalH+0.02, mullThickness),
+        mullMat
+      );
+      m.position.set(x, startY + totalH/2, z);
+      g.add(m);
+    }
+    // Front + back mullions
+    for(let i=0; i<=cols; i++){
+      const x = -W/2 + i*(W/cols);
+      vertMullion(x,  D/2 + 0.005);
+      vertMullion(x, -D/2 - 0.005);
+    }
+    // Left + right mullions
+    for(let i=0; i<=cols; i++){
+      const z = -D/2 + i*(D/cols);
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(mullThickness, totalH+0.02, mullThickness),
+        mullMat
+      );
+      m.position.set(-W/2 - 0.005, startY + totalH/2, z);
+      g.add(m);
+      const mr = m.clone();
+      mr.position.x = W/2 + 0.005;
+      g.add(mr);
+    }
+
+    // Crown rim at the top
+    const rim = new THREE.Mesh(
+      new THREE.BoxGeometry(W*1.04, 0.10, D*1.04),
+      accentMat
+    );
+    rim.position.y = towerH + 0.05;
+    rim.castShadow=true;
+    g.add(rim);
+
+    g.userData.towerH = towerH;
+    return g;
   }
 
-  function placeGlbBuilding(url, opts){
-    // Pre-register a placeholder hit area so the click works the moment
-    // the user opens the screen, even before the GLB finishes loading.
-    const placeholder = new THREE.Group();
-    placeholder.position.set(opts.x, -1.8, opts.z);
-    scene.add(placeholder);
-    objects.push({group:placeholder, key:opts.key, hit:placeholder});
-
-    loader.load(url, (gltf)=>{
-      const root = gltf.scene;
-      // 1) Measure raw bbox
-      const box = new THREE.Box3().setFromObject(root);
-      const size = new THREE.Vector3(); box.getSize(size);
-      const ctr  = new THREE.Vector3(); box.getCenter(ctr);
-      // 2) Auto-scale so the model is the desired height (default 5 units)
-      const targetH = opts.height || 5.0;
-      const s = (size.y > 0) ? (targetH / size.y) : 1;
-      root.scale.setScalar(s);
-      // 3) Recenter X/Z on origin and put bottom of bbox on the floor
-      const scaledCenter = ctr.clone().multiplyScalar(s);
-      const scaledMinY   = box.min.y * s;
-      root.position.set(-scaledCenter.x, -scaledMinY, -scaledCenter.z);
-      // 4) Tint every mesh with brand color
-      root.traverse(c=>{
-        if(c.isMesh){
-          c.castShadow=true; c.receiveShadow=true;
-          tintMaterial(c, opts.tint, opts.materialOpts);
-        }
-      });
-      // 5) Add to placeholder so position + click target stay aligned
-      placeholder.add(root);
-
-      // 6) Big invisible collider so it's easy to click anywhere on the
-      //    facade (the GLB itself is made of many small panes).
-      const collider = new THREE.Mesh(
-        new THREE.BoxGeometry(size.x*s*1.05, targetH, size.z*s*1.05),
-        new THREE.MeshBasicMaterial({visible:false})
-      );
-      collider.position.set(0, targetH/2, 0);
-      placeholder.add(collider);
-    }, undefined, (err)=>{
-      console.warn("[VIP] "+url+" no se pudo cargar:", err);
-      // Fallback: a coloured box so the click area still reads visually
-      const fallback = new THREE.Mesh(
-        new THREE.BoxGeometry(1.6, opts.height||5.0, 1.6),
-        new THREE.MeshStandardMaterial({color:opts.tint, metalness:.6, roughness:.3})
-      );
-      fallback.position.y = (opts.height||5.0)/2;
-      placeholder.add(fallback);
-    });
-  }
-
+  /* ACTINVER — dark navy glass + GOLD architectural accents */
   function buildActinver(){
-    placeGlbBuilding("actinver.glb", {
-      key:    "actinver",
-      x: -4.2, z: 0,
-      height: 5.0,
-      tint: 0xc6a028,                 // Actinver gold
-      materialOpts:{
-        metalness: 0.65, roughness: 0.28,
-        emissive: 0xc6a028, emissiveIntensity: 0.10
-      }
+    const g = buildModernTower({
+      w: 1.75, d: 1.75,
+      floors: 15,
+      cols: 3,
+      glass:    0x1b2a4a,
+      glassEm:  0x111b32,
+      slab:     0xc6a060,
+      mullion:  0x8a6f30,
+      accent:   GOLD
     });
+    const towerH = g.userData.towerH;
+    // Stepped pedestal under the pyramid roof
+    const step = new THREE.Mesh(
+      new THREE.BoxGeometry(1.40, 0.18, 1.40),
+      new THREE.MeshStandardMaterial({color:0x1b2a4a,metalness:0.6,roughness:0.3})
+    );
+    step.position.y = towerH + 0.20;
+    step.castShadow=true; g.add(step);
+    // Golden pyramid
+    const roof = new THREE.Mesh(
+      new THREE.ConeGeometry(0.95, 0.85, 4),
+      new THREE.MeshStandardMaterial({color:GOLD,metalness:0.88,roughness:0.20,emissive:GOLD,emissiveIntensity:0.20})
+    );
+    roof.position.y = towerH + 0.72;
+    roof.rotation.y = Math.PI/4;
+    roof.castShadow = true;
+    g.add(roof);
+
+    g.position.set(-4.2, -1.8, 0);
+    // Invisible click collider sized to the whole tower
+    const fullH = towerH + 1.2;
+    const collider = new THREE.Mesh(
+      new THREE.BoxGeometry(1.85, fullH, 1.85),
+      new THREE.MeshBasicMaterial({visible:false})
+    );
+    collider.position.y = fullH/2;
+    g.add(collider);
+    scene.add(g);
+    objects.push({group:g,key:"actinver",hit:g});
   }
+
+  /* ALTERNA — dark navy glass + SILVER architectural accents */
   function buildUSA(){
-    placeGlbBuilding("alterna.glb", {
-      key:    "usa",
-      x: 4.2, z: 0,
-      height: 5.6,
-      tint: 0x4a78d8,                 // Alterna blue
-      materialOpts:{
-        metalness: 0.70, roughness: 0.22,
-        emissive: 0x4a78d8, emissiveIntensity: 0.10
-      }
+    const g = buildModernTower({
+      w: 1.50, d: 1.50,
+      floors: 19,
+      cols: 3,
+      glass:    0x1c2c4f,
+      glassEm:  0x121e38,
+      slab:     0xc5cdd9,
+      mullion:  0x717685,
+      accent:   0xc9d2e0
     });
+    const towerH = g.userData.towerH;
+    // Silver crown box
+    const crownBox = new THREE.Mesh(
+      new THREE.BoxGeometry(1.20, 0.18, 1.20),
+      new THREE.MeshStandardMaterial({color:0x1c2c4f,metalness:0.6,roughness:0.3})
+    );
+    crownBox.position.y = towerH + 0.20;
+    crownBox.castShadow=true; g.add(crownBox);
+    // Slim metallic spire
+    const spire = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.13, 1.5, 12),
+      new THREE.MeshStandardMaterial({color:0xdfe6f5,metalness:0.85,roughness:0.20})
+    );
+    spire.position.y = towerH + 1.10;
+    g.add(spire);
+
+    g.position.set(4.2, -1.8, 0);
+    const fullH = towerH + 1.8;
+    const collider = new THREE.Mesh(
+      new THREE.BoxGeometry(1.60, fullH, 1.60),
+      new THREE.MeshBasicMaterial({visible:false})
+    );
+    collider.position.y = fullH/2;
+    g.add(collider);
+    scene.add(g);
+    objects.push({group:g,key:"usa",hit:g});
   }
 
   /* VAULT (center foreground) — real 3D box with pedestal, inset
@@ -5539,14 +5642,17 @@ body.vip-active .topbar { display: none !important; }
     sp.renderOrder = 20;
     return sp;
   }
-  function addFloorLabel(title, subtitle, x, z){
+  function addFloorLabel(title, subtitle, x, z, sx, sy){
     const sp = makeFloorLabel(title, subtitle);
-    sp.position.set(x, -1.30, z);
+    if (sx && sy) sp.scale.set(sx, sy, 1);
+    sp.position.set(x, -1.60, z);
     scene.add(sp);
   }
-  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 1.85);
-  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 1.85);
-  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 4.20);
+  // Smaller (1.35 x 0.44) and pushed clearly in front of each object so
+  // they read as ground plaques BELOW the buildings / vault, not on top.
+  addFloorLabel("Actinver",    "$35.7M MXN",      -4.2, 2.60, 1.35, 0.44);
+  addFloorLabel("Alterna",     "$200,000 USD",     4.2, 2.60, 1.35, 0.44);
+  addFloorLabel("Protección",  "$3,000,000 MXN",  0.0, 5.10, 1.35, 0.44);
 
   /* ============================================================
      ARCELIA — torso/3D model placed BEHIND the vault so her bust
@@ -5596,19 +5702,20 @@ body.vip-active .topbar { display: none !important; }
     m.userData.baseRotY   = baseRotY;
     window.__arcelia = m;
 
-    // 5) Dedicated key light on Arcelia so the bust gets proper
-    //    highlights and shadow falloff across her cheeks/hair.
-    const charLight = new THREE.SpotLight(0xfff4e0, 1.4, 12, Math.PI/5, 0.55, 1.5);
-    charLight.position.set(targetX - 1.2, vaultTop + 2.6, targetZ + 1.8);
-    charLight.target.position.set(targetX, vaultTop + 0.6, targetZ);
-    charLight.castShadow = true;
-    charLight.shadow.mapSize.set(1024,1024);
-    charLight.shadow.bias = -0.0005;
-    scene.add(charLight);
-    scene.add(charLight.target);
-    const charFill = new THREE.PointLight(0xeaf2ff, 0.45, 6);
-    charFill.position.set(targetX + 1.0, vaultTop + 1.3, targetZ + 1.4);
-    scene.add(charFill);
+    // 5) Tame the model materials so she sits in the same tonal
+    //    range as the rest of the scene (was looking like a sticker
+    //    because of high emissive + the previous dedicated lights).
+    m.traverse(c=>{
+      if(c.isMesh && c.material){
+        const ms = Array.isArray(c.material) ? c.material : [c.material];
+        ms.forEach(mat=>{
+          if (mat.emissive)         mat.emissiveIntensity = 0.0;
+          if ("metalness" in mat)  mat.metalness = Math.min(mat.metalness ?? 0, 0.2);
+          if ("roughness" in mat)  mat.roughness = Math.max(mat.roughness ?? 1, 0.75);
+          mat.needsUpdate = true;
+        });
+      }
+    });
 
     scene.add(m);
   },undefined,(err)=>{
