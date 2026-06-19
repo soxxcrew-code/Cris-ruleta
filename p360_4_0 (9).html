@@ -1945,8 +1945,9 @@
               <!-- BOTÓN GUARDAR -->
               <div class="row" style="gap:10px;flex-wrap:wrap;">
                 <div class="pillBtn" id="btnGuardarDiagnostico">📄 Generar resumen + PDF</div>
-                <div class="pillBtn secondary" id="btnDescargarDiag">Descargar JSON</div>
-                <div class="pillBtn secondary" id="btnDescargarDiagCSV">Descargar CSV</div>
+              </div>
+              <div class="note" style="margin-top:8px;font-size:11px;color:rgba(233,242,255,.45);">
+                🔒 Los datos del diagnóstico se quedan en este dispositivo. Cada prospecto realiza su propio diagnóstico de manera privada y confidencial.
               </div>
 
             </div>
@@ -2575,29 +2576,8 @@
       toast("Limpio");
     });
 
-    document.getElementById("btnDescargarDiag").addEventListener("click",()=>{
-      const payload = buildDiagExport();
-      const blob = new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-      const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="diagnostico_actinver.json"; a.click();
-      URL.revokeObjectURL(a.href); toast("Descargado JSON");
-    });
-
-    document.getElementById("btnDescargarDiagCSV").addEventListener("click",()=>{
-      const d=buildDiagExport();
-      const rows=[["campo","valor"],
-        ["nombre",d.nombre],["edad",d.edad],["ingreso_mensual",d.ingresoMensual],
-        ["gasto_mensual",d.gastoMensual],["flujo_libre",d.flujoLibre],
-        ["deuda_pago",d.deuda.pagoMensual],["deuda_tasa",d.deuda.tasa],["deuda_total",d.deuda.total],
-        ["ppr_mensual",d.ppr.mensual],["ppr_isr",d.ppr.isr],["ppr_anos",d.ppr.anos],
-        ["ppr_deduccion",d.ppr.deduccionAnual],["ppr_proyeccion",d.ppr.proyeccion],
-        ["capital_actinver",d.capital.actinver],["capital_fuera",d.capital.fuera],
-        ["perfil",d.perfil],["proteccion",Object.entries(d.proteccion).filter(([,v])=>v).map(([k])=>k).join("|")],
-      ];
-      const csv=rows.map(r=>r.map(v=>{const s=(v??"").toString(); return /[",\n]/.test(s)?`"${s.replaceAll('"','""')}"`:''+s;}).join(",")).join("\n");
-      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-      const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="diagnostico_actinver.csv"; a.click();
-      URL.revokeObjectURL(a.href); toast("Descargado CSV");
-    });
+    // Exportaciones a JSON / CSV removidas: cada prospecto realiza su diagnóstico
+    // de manera privada. El asesor entrega únicamente el PDF resumen.
 
     function buildDiagExport(){
       const pprCalc=calcPPR();
