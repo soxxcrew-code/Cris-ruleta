@@ -1942,6 +1942,65 @@
                 <div class="note" style="margin-top:8px;">Límite deducible: 10% del ingreso anual (hasta $152,000 MXN aprox.). Si el cliente tiene 55+ años, puede hacer una aportación grande y rescatarla exenta de ISR.</div>
               </div>
 
+              <!-- 6. BLINDAJE PATRIMONIAL -->
+              <div class="diagSection">
+                <div class="diagSectionTitle">🛡️ Blindaje Patrimonial</div>
+                <div class="note" style="margin-bottom:10px;">
+                  Buscamos tres beneficios fundamentales: <b>reducción de impuestos</b>, <b>inembargabilidad</b> y <b>discrecionalidad ante el SAT</b>.
+                </div>
+
+                <div class="widgetGrid">
+                  <div class="field">
+                    <label>Capital a blindar (MXN)</label>
+                    <input id="diagBlindajeCapital" type="number" placeholder="Ej. 1,500,000" />
+                  </div>
+                  <div class="field">
+                    <label>Aportación anual deseada (MXN)</label>
+                    <input id="diagBlindajeAportacion" type="number" placeholder="Ej. 500,000" />
+                  </div>
+                  <div class="field">
+                    <label>Plazo del plan</label>
+                    <select id="diagBlindajePlazo" style="width:100%;padding:10px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.20);color:rgba(233,242,255,.92);">
+                      <option value="">Sin definir</option>
+                      <option value="3">3 años</option>
+                      <option value="5">5 años</option>
+                      <option value="10">10 años</option>
+                      <option value="15">15 años</option>
+                      <option value="20">20 años</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Beneficiarios designados</label>
+                    <input id="diagBlindajeBenef" type="text" placeholder="Ej. Hijos, cónyuge" />
+                  </div>
+                </div>
+
+                <!-- Objetivos del blindaje -->
+                <div style="margin-top:10px;">
+                  <div class="note" style="margin-bottom:6px;">Objetivos prioritarios para el cliente (toca los que apliquen):</div>
+                  <div class="chipRow" id="diagBlindajeObj">
+                    <div class="chip" data-blindaje="isr">Reducir ISR</div>
+                    <div class="chip" data-blindaje="inembargable">Inembargabilidad</div>
+                    <div class="chip" data-blindaje="sat">Discrecionalidad ante SAT</div>
+                    <div class="chip" data-blindaje="sucesion">Sucesión sin juicio</div>
+                  </div>
+                </div>
+
+                <!-- KPIs del blindaje -->
+                <div class="kpiGrid" style="margin-top:12px;">
+                  <div class="kpi"><div class="t">Capital protegido</div><div class="v" id="blindajeCapitalKpi">$—</div></div>
+                  <div class="kpi"><div class="t">Ahorro fiscal estimado</div><div class="v" id="blindajeAhorroIsrKpi">$—</div></div>
+                  <div class="kpi"><div class="t">Indemnización proyectada</div><div class="v" id="blindajeIndemKpi">$—</div></div>
+                </div>
+
+                <div class="note" style="margin-top:10px;font-size:11px;line-height:1.55;">
+                  <b>Marco legal:</b> Exención de ISR (Art. 93 Fracc. XXI LISR) · Inembargabilidad
+                  (Art. 179–180 Ley del Contrato de Seguro) · Discrecionalidad ante SAT
+                  (Art. 294 Fracc. XIV LISF). El capital no forma parte de la masa hereditaria
+                  y se entrega directamente a los beneficiarios designados.
+                </div>
+              </div>
+
               <!-- BOTÓN GUARDAR -->
               <div class="row" style="gap:10px;flex-wrap:wrap;">
                 <div class="pillBtn" id="btnGuardarDiagnostico">📄 Generar resumen + PDF</div>
@@ -2254,6 +2313,20 @@
       runDiag();
     });
 
+    // chips de objetivos del blindaje patrimonial
+    const diagBlindajeObj = document.getElementById("diagBlindajeObj");
+    if(diagBlindajeObj){
+      diagBlindajeObj.addEventListener("click", (e) => {
+        const chip = e.target.closest(".chip");
+        if (!chip) return;
+        chip.classList.toggle("active");
+        runDiag();
+      });
+    }
+    function blindajeObj(key){
+      return document.querySelector(`#diagBlindajeObj .chip[data-blindaje="${key}"]`)?.classList.contains("active") || false;
+    }
+
     // ---------- Helpers ----------
     const mxnD = new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:0});
     function safeN(id){ const v=+document.getElementById(id)?.value; return isFinite(v)?v:0; }
@@ -2478,6 +2551,91 @@
         });
       }
 
+      // 8. BLINDAJE PATRIMONIAL — reducción de impuestos, inembargabilidad y discrecionalidad
+      const blindajeCap   = safeN("diagBlindajeCapital");
+      const blindajeAport = safeN("diagBlindajeAportacion");
+      const blindajePlazo = safeN("diagBlindajePlazo");
+      const blindajeBenef = safeS("diagBlindajeBenef");
+      const objIsr        = blindajeObj("isr");
+      const objInem       = blindajeObj("inembargable");
+      const objSat        = blindajeObj("sat");
+      const objSuc        = blindajeObj("sucesion");
+      const tieneObjBlin  = objIsr || objInem || objSat || objSuc;
+
+      // Tasa ISR a usar para estimar ahorro fiscal (PPR si está, si no 30%)
+      const tasaIsrEst = (safeN("pprISR")/100) || 0.30;
+      // Rendimiento ilustrativo del plan dotal/blindaje (~6% anual)
+      const rendBlindaje = 0.06;
+
+      // Cálculos del blindaje
+      let capitalProyectado = 0;
+      let ahorroIsrAnual = 0;
+      let indemnizacion = 0;
+      const aportPlan = blindajeAport > 0 ? blindajeAport : (blindajeCap>0 && blindajePlazo>0 ? blindajeCap/blindajePlazo : 0);
+
+      if(blindajeCap>0 || aportPlan>0){
+        const plazo = blindajePlazo>0 ? blindajePlazo : 10;
+        // Acumulación: aportación anual al rendimiento del plan
+        let acum = 0;
+        for(let i=0;i<plazo;i++) acum = (acum + aportPlan) * (1 + rendBlindaje);
+        capitalProyectado = Math.max(acum, blindajeCap*Math.pow(1+rendBlindaje, plazo));
+        // Ahorro fiscal: rendimiento exento de ISR (vs cuenta gravada)
+        ahorroIsrAnual = capitalProyectado>0 ? (capitalProyectado * rendBlindaje * tasaIsrEst) : 0;
+        // Indemnización por fallecimiento (suma asegurada típica: ~2x capital aportado)
+        indemnizacion = Math.max(blindajeCap, aportPlan*plazo) * 2;
+      }
+
+      // Update KPIs blindaje
+      const blindajeCapEl   = document.getElementById("blindajeCapitalKpi");
+      const blindajeIsrEl   = document.getElementById("blindajeAhorroIsrKpi");
+      const blindajeIndemEl = document.getElementById("blindajeIndemKpi");
+      if(blindajeCapEl)   blindajeCapEl.textContent   = capitalProyectado>0 ? mxnD.format(Math.round(capitalProyectado)) : "$—";
+      if(blindajeIsrEl)   blindajeIsrEl.textContent   = ahorroIsrAnual>0 ? mxnD.format(Math.round(ahorroIsrAnual))+"/año" : "$—";
+      if(blindajeIndemEl) blindajeIndemEl.textContent = indemnizacion>0 ? mxnD.format(Math.round(indemnizacion)) : "$—";
+
+      // Oportunidad de Blindaje Patrimonial
+      const calificaBlindaje = blindajeCap>=500000 || aportPlan>=100000 || (capActual+capFuera)>=1000000 || tieneObjBlin;
+      if(calificaBlindaje){
+        const objetivos = [];
+        if(objIsr || tasaIsrEst>=0.30) objetivos.push("reducción de ISR");
+        if(objInem) objetivos.push("inembargabilidad");
+        if(objSat)  objetivos.push("discrecionalidad ante SAT");
+        if(objSuc)  objetivos.push("sucesión sin juicio");
+        const objetivosTxt = objetivos.length ? objetivos.join(", ") : "reducción de ISR, inembargabilidad y discrecionalidad ante SAT";
+
+        let cuerpo = `Plan de <b>Blindaje Patrimonial</b> orientado a <b>${objetivosTxt}</b>.`;
+        if(blindajeCap>0) cuerpo += ` Capital base a blindar: <b>${mxnD.format(blindajeCap)}</b>.`;
+        if(aportPlan>0 && blindajePlazo>0){
+          cuerpo += ` Aportación anual de <b>${mxnD.format(aportPlan)}</b> durante <b>${blindajePlazo} años</b>.`;
+        }
+        if(capitalProyectado>0){
+          cuerpo += ` Proyección a término: <b>${mxnD.format(Math.round(capitalProyectado))}</b>.`;
+        }
+        if(ahorroIsrAnual>0){
+          cuerpo += ` Ahorro fiscal estimado: <b>${mxnD.format(Math.round(ahorroIsrAnual))}/año</b> (rendimientos exentos vs. cuenta gravada al ${(tasaIsrEst*100).toFixed(0)}%).`;
+        }
+        if(blindajeBenef){
+          cuerpo += ` Beneficiarios designados: <b>${blindajeBenef}</b> (entrega directa, fuera de masa hereditaria).`;
+        }
+        cuerpo += `<br><br><b>Beneficios legales:</b><br>`;
+        cuerpo += `• <b>100% Exento de ISR</b> al pago de indemnización (Art. 93 Fracc. XXI LISR).<br>`;
+        cuerpo += `• <b>Inembargable</b> ante juicios, concursos o quiebras (Art. 179–180 Ley del Contrato de Seguro).<br>`;
+        cuerpo += `• <b>Confidencial ante el SAT</b>: no hay obligación de reportar (Art. 294 Fracc. XIV LISF).`;
+
+        const numero = capitalProyectado>0
+          ? mxnD.format(Math.round(capitalProyectado))+" protegidos"
+          : (blindajeCap>0 ? mxnD.format(blindajeCap)+" a blindar" : "Reducción ISR · Inembargable · Discrecional");
+
+        ops.push({
+          prioridad: (blindajeCap>=1000000 || tieneObjBlin) ? "urgente" : "media",
+          emoji:"🛡️",
+          titulo:"Blindaje Patrimonial — reducción ISR, inembargable y discrecional",
+          cuerpo,
+          numero,
+          productos:["Plan Dotal Patrimonial","VIDA, PAGOS LIMITADOS","AHORRO MIXTO"]
+        });
+      }
+
       // ---------- Calcular nivel de protección para KPIs ----------
       const protFlags = [prot("vida"), prot("gmm"), prot("invalidez"), prot("hogar"), prot("auto")];
       const sinCount = protFlags.filter(v=>!v).length;
@@ -2560,8 +2718,8 @@
     }
 
     // ---------- Wiring ----------
-    const diagInputs = ["diagIngreso","diagGasto","diagEdad","diagDeudaPago","diagDeudaTasa","diagDeudaTotal","diagCapitalActual","diagCapitalFuera","pprMensual","pprISR","pprAnios","pprRend","diagNombre"];
-    const diagSelects = ["diagDeudaTipo","diagPerfil","diagHorizonte"];
+    const diagInputs = ["diagIngreso","diagGasto","diagEdad","diagDeudaPago","diagDeudaTasa","diagDeudaTotal","diagCapitalActual","diagCapitalFuera","pprMensual","pprISR","pprAnios","pprRend","diagNombre","diagBlindajeCapital","diagBlindajeAportacion","diagBlindajeBenef"];
+    const diagSelects = ["diagDeudaTipo","diagPerfil","diagHorizonte","diagBlindajePlazo"];
     diagInputs.forEach(id=>{ document.getElementById(id)?.addEventListener("input", runDiag); });
     diagSelects.forEach(id=>{ document.getElementById(id)?.addEventListener("change", runDiag); });
 
@@ -2571,6 +2729,7 @@
       diagInputs.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
       diagSelects.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
       document.querySelectorAll("#diagProteccion .chip").forEach(c=>c.classList.remove("active"));
+      document.querySelectorAll("#diagBlindajeObj .chip").forEach(c=>c.classList.remove("active"));
       localStorage.removeItem("diagnostico_cliente");
       runDiag();
       toast("Limpio");
@@ -2581,6 +2740,21 @@
 
     function buildDiagExport(){
       const pprCalc=calcPPR();
+      const blindajeCap   = safeN("diagBlindajeCapital");
+      const blindajeAport = safeN("diagBlindajeAportacion");
+      const blindajePlazo = safeN("diagBlindajePlazo");
+      const tasaIsrEst    = (safeN("pprISR")/100) || 0.30;
+      const rendBlindaje  = 0.06;
+      const aportPlanExp  = blindajeAport>0 ? blindajeAport : (blindajeCap>0 && blindajePlazo>0 ? blindajeCap/blindajePlazo : 0);
+      let capitalProy=0, ahorroIsr=0, indem=0;
+      if(blindajeCap>0 || aportPlanExp>0){
+        const plazo = blindajePlazo>0 ? blindajePlazo : 10;
+        let acum=0;
+        for(let i=0;i<plazo;i++) acum=(acum+aportPlanExp)*(1+rendBlindaje);
+        capitalProy = Math.max(acum, blindajeCap*Math.pow(1+rendBlindaje, plazo));
+        ahorroIsr   = capitalProy>0 ? capitalProy*rendBlindaje*tasaIsrEst : 0;
+        indem       = Math.max(blindajeCap, aportPlanExp*plazo)*2;
+      }
       return {
         generadoEn:new Date().toISOString(),
         nombre:safeS("diagNombre"),
@@ -2593,6 +2767,22 @@
         ppr:{ mensual:safeN("pprMensual"), isr:safeN("pprISR"), anos:safeN("pprAnios"), rend:safeN("pprRend"), deduccionAnual:pprCalc.ded, proyeccion:pprCalc.total },
         capital:{ actinver:safeN("diagCapitalActual"), fuera:safeN("diagCapitalFuera") },
         perfil:safeS("diagPerfil"), horizonte:safeS("diagHorizonte"),
+        blindaje:{
+          capital: blindajeCap,
+          aportacionAnual: blindajeAport,
+          plazo: blindajePlazo,
+          beneficiarios: safeS("diagBlindajeBenef"),
+          objetivos: {
+            isr: blindajeObj("isr"),
+            inembargable: blindajeObj("inembargable"),
+            sat: blindajeObj("sat"),
+            sucesion: blindajeObj("sucesion"),
+          },
+          capitalProyectado: capitalProy,
+          ahorroIsrAnual: ahorroIsr,
+          indemnizacion: indem,
+          rendimiento: rendBlindaje,
+        },
       };
     }
 
@@ -3573,6 +3763,99 @@ function buildPortafolioExport(){
       doc.text(mxnP.format(Math.round(proy5)), PW-M-14, y+44, {align:"right"});
       y += 56;
 
+      // ========== SECCIÓN 5b: BLINDAJE PATRIMONIAL ==========
+      const blin = d.blindaje || {};
+      const tieneBlindaje =
+        (blin.capital>0) || (blin.aportacionAnual>0) ||
+        (blin.objetivos && (blin.objetivos.isr || blin.objetivos.inembargable || blin.objetivos.sat || blin.objetivos.sucesion));
+      if(tieneBlindaje){
+        if(y > PH - 260){ doc.addPage(); addFooter(); y = 60; }
+        secTitle("Blindaje Patrimonial — Reducción ISR · Inembargable · Discrecional","🛡️");
+
+        const kpiItems = [];
+        if(blin.capital>0) kpiItems.push({label:"Capital a blindar", value:mxnP.format(blin.capital), color:NAVY});
+        if(blin.aportacionAnual>0) kpiItems.push({label:"Aportación anual", value:mxnP.format(blin.aportacionAnual), color:TEAL});
+        if(blin.plazo>0) kpiItems.push({label:"Plazo del plan", value:`${blin.plazo} años`, color:NAVY});
+        if(blin.capitalProyectado>0) kpiItems.push({label:"Proyección al término", value:mxnP.format(Math.round(blin.capitalProyectado)), color:GREEN});
+        if(kpiItems.length) kpiRow(kpiItems);
+
+        if(blin.ahorroIsrAnual>0 || blin.indemnizacion>0){
+          const kpi2 = [];
+          if(blin.ahorroIsrAnual>0) kpi2.push({label:"Ahorro fiscal estimado", value:mxnP.format(Math.round(blin.ahorroIsrAnual))+"/año", color:GREEN});
+          if(blin.indemnizacion>0) kpi2.push({label:"Indemnización proyectada", value:mxnP.format(Math.round(blin.indemnizacion)), color:TEAL});
+          if(blin.beneficiarios) kpi2.push({label:"Beneficiarios designados", value:blin.beneficiarios, color:NAVY});
+          if(kpi2.length) kpiRow(kpi2);
+        }
+
+        // Tres beneficios legales en tarjetas
+        const benefBoxes = [
+          {
+            tit:"100% Exento de ISR",
+            desc:"La indemnización se cobra libre de impuestos. No hay retención al pago a los beneficiarios.",
+            ley:"Art. 93 Fracc. XXI LISR",
+            color:GREEN
+          },
+          {
+            tit:"Inembargable",
+            desc:"Protegido ante juicios, concursos o quiebras. El capital no puede ser confiscado.",
+            ley:"Art. 179–180 Ley del Contrato de Seguro",
+            color:NAVY
+          },
+          {
+            tit:"Confidencial ante el SAT",
+            desc:"No hay obligación de reportar estas inversiones al SAT.",
+            ley:"Art. 294 Fracc. XIV LISF",
+            color:TEAL
+          }
+        ];
+        const bxW = (CW - 12) / 3;
+        if(y > PH - 130){ doc.addPage(); addFooter(); y = 60; }
+        benefBoxes.forEach((bx,i)=>{
+          const bxX = M + i*(bxW+6);
+          doc.setFillColor(248,251,253);
+          doc.roundedRect(bxX, y, bxW, 96, 6, 6, "F");
+          doc.setFillColor(...bx.color);
+          doc.roundedRect(bxX, y, bxW, 4, 2, 2, "F");
+          doc.setFont("helvetica","bold"); doc.setFontSize(10);
+          doc.setTextColor(...bx.color);
+          doc.text(bx.tit, bxX+10, y+22);
+          doc.setFont("helvetica","normal"); doc.setFontSize(8);
+          doc.setTextColor(70,80,100);
+          doc.text(doc.splitTextToSize(bx.desc, bxW-20), bxX+10, y+36);
+          doc.setFont("helvetica","italic"); doc.setFontSize(7.5);
+          doc.setTextColor(...GRAY);
+          doc.text(doc.splitTextToSize(bx.ley, bxW-20), bxX+10, y+82);
+        });
+        y += 104;
+
+        // Nota
+        const objs = [];
+        if(blin.objetivos?.isr)         objs.push("reducción de ISR");
+        if(blin.objetivos?.inembargable)objs.push("inembargabilidad");
+        if(blin.objetivos?.sat)         objs.push("discrecionalidad ante SAT");
+        if(blin.objetivos?.sucesion)    objs.push("sucesión sin juicio");
+        if(objs.length){
+          doc.setFillColor(245,248,255);
+          doc.roundedRect(M, y, CW, 28, 5, 5, "F");
+          doc.setFillColor(...NAVY);
+          doc.roundedRect(M, y, 4, 28, 2, 2, "F");
+          doc.setFont("helvetica","bold"); doc.setFontSize(9);
+          doc.setTextColor(...NAVY);
+          doc.text("Objetivos prioritarios del cliente:", M+12, y+12);
+          doc.setFont("helvetica","normal"); doc.setFontSize(9);
+          doc.setTextColor(60,70,90);
+          doc.text(objs.join(" · "), M+12, y+24);
+          y += 34;
+        }
+
+        doc.setFillColor(252,250,240);
+        doc.roundedRect(M, y, CW, 22, 4, 4, "F");
+        doc.setFont("helvetica","italic"); doc.setFontSize(8);
+        doc.setTextColor(...GRAY);
+        doc.text("* Capital garantizado. No forma parte de la masa hereditaria. Se entrega directamente a los beneficiarios designados.", M+10, y+14);
+        y += 30;
+      }
+
       // ========== SECCIÓN 6: PLAN DE ACCIÓN ==========
       if(y > PH - 140){ doc.addPage(); addFooter(); y = 60; }
       secTitle("Plan de Acción — Oportunidades Detectadas","🎯");
@@ -3608,6 +3891,29 @@ function buildPortafolioExport(){
         opsForPDF.push({emoji:"", title:"Portafolio de inversión",
           body:`Flujo libre: ${mxnP.format(flujo)}/mes disponible para invertir. Perfil ${pfDefault.label}: ${rendEsp}. ${capFuera>0?"Capital fuera de Actinver: "+mxnP.format(capFuera)+" — oportunidad de traer activos.":""}`,
           prioridad:"baja", productos: pfDefault.mix.slice(0,2).map(m=>m.prod.split("+")[0].trim())});
+      }
+      if(tieneBlindaje){
+        const objsTxt = (function(){
+          const o=[];
+          if(blin.objetivos?.isr) o.push("reducción de ISR");
+          if(blin.objetivos?.inembargable) o.push("inembargabilidad");
+          if(blin.objetivos?.sat) o.push("discrecionalidad ante SAT");
+          if(blin.objetivos?.sucesion) o.push("sucesión sin juicio");
+          return o.length ? o.join(", ") : "reducción ISR, inembargabilidad y discrecionalidad ante SAT";
+        })();
+        let cuerpoPDF = `Plan de Blindaje Patrimonial orientado a ${objsTxt}.`;
+        if(blin.capital>0) cuerpoPDF += ` Capital base: ${mxnP.format(blin.capital)}.`;
+        if(blin.aportacionAnual>0 && blin.plazo>0) cuerpoPDF += ` Aportación anual ${mxnP.format(blin.aportacionAnual)} durante ${blin.plazo} años.`;
+        if(blin.capitalProyectado>0) cuerpoPDF += ` Proyección: ${mxnP.format(Math.round(blin.capitalProyectado))}.`;
+        if(blin.ahorroIsrAnual>0) cuerpoPDF += ` Ahorro fiscal estimado: ${mxnP.format(Math.round(blin.ahorroIsrAnual))}/año.`;
+        cuerpoPDF += ` Beneficios: 100% exento de ISR, inembargable y confidencial ante el SAT.`;
+        opsForPDF.push({
+          emoji:"🛡️",
+          title:"Blindaje Patrimonial — reducción ISR, inembargable y discrecional",
+          body: cuerpoPDF,
+          prioridad: (blin.capital>=1000000) ? "urgente" : "media",
+          productos:["Plan Dotal Patrimonial","VIDA, PAGOS LIMITADOS","AHORRO MIXTO"]
+        });
       }
 
       opsForPDF.forEach(op=>{
